@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mi Monday
 
-## Getting Started
+Plataforma de gestión de proyectos y tareas para equipos: espacios de trabajo con roles, tableros con grupos, tareas con estado, prioridad, responsable y vencimiento, vista de tabla y de calendario, y comentarios.
 
-First, run the development server:
+> El nombre se cambia en un solo lugar: `src/config/site.ts` (o con la variable `NEXT_PUBLIC_APP_NAME`).
+> “Monday” es una marca de terceros: conviene elegir un nombre propio antes de publicarla para el público general.
+
+## Stack
+
+- **Next.js 16** (App Router, Server Actions, `proxy.ts`) + **React 19** + **TypeScript**
+- **Tailwind CSS 4** con tokens de diseño propios (modo claro y oscuro según el sistema)
+- **Supabase**: Postgres, Auth (email y contraseña) y Row Level Security
+- **zod** para validar datos en el servidor
+
+## Funcionalidades
+
+- Registro, inicio de sesión, recuperación y cambio de contraseña, cierre de sesión. Rutas privadas protegidas.
+- Espacios de trabajo con roles **propietario / administrador / miembro** e invitaciones por email.
+- Tableros compartidos o privados; renombrar, archivar, restaurar y eliminar (solo archivados y con confirmación escrita).
+- Tablero de ejemplo opcional al crear un espacio nuevo (contenido marcado como “Ejemplo”).
+- Grupos ordenables (renombrar, color, subir/bajar, eliminar).
+- Tareas: crear, editar en línea, duplicar, mover entre grupos, reordenar (arrastrar o con el menú, accesible por teclado), eliminar con confirmación.
+- Estados configurables por tablero (iniciales: Pendiente, En progreso, En revisión, Hecho) y prioridades Baja/Media/Alta/Urgente.
+- Vista de tabla con búsqueda, filtros (estado, prioridad, responsable) y orden (nombre, prioridad, vencimiento, estado). En celular se muestra como tarjetas.
+- Vista de calendario mensual por fecha de vencimiento.
+- Comentarios por tarea.
+
+## Seguridad
+
+- Todas las tablas tienen **RLS**; cada lectura y escritura valida la membresía y el rol en la base de datos.
+- La app usa **solo la clave pública** de Supabase. No necesita ni lee la clave `service_role`.
+- Las funciones `SECURITY DEFINER` son mínimas, viven en el esquema `private` (no expuesto) salvo `respond_to_invitation`, y tienen `search_path` fijo. Cada una está justificada en la migración.
+- `supabase/tests/rls_test.sql` contiene 38 pruebas de permisos (se ejecutan dentro de una transacción que se revierte).
+
+## Puesta en marcha local
 
 ```bash
+cp .env.example .env.local   # completá URL y clave pública de Supabase
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Base de datos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+La migración `supabase/migrations/20261022160000_init_schema.sql` es idempotente y no contiene sentencias `DROP` ni modifica datos existentes. Se aplica con la CLI de Supabase (`supabase db push`) o pegándola en el editor SQL del panel.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Pruebas de permisos (contra una base de prueba, nunca producción):
 
-## Learn More
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Configuración de Auth en Supabase (una vez)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+En **Authentication → URL Configuration**:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Site URL**: la URL de producción (por ejemplo `https://mi-monday.vercel.app`).
+- **Redirect URLs**: agregá `https://mi-monday.vercel.app/**`, `https://*-jorges-projects-464fd33b.vercel.app/**` (previews) y `http://localhost:3000/**`.
 
-## Deploy on Vercel
+Emails: el servidor de correo incluido en Supabase tiene un límite bajo de envíos y está pensado para pruebas. Para usuarios reales configurá un SMTP propio en **Authentication → Emails → SMTP Settings**.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Verificaciones
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx tsc --noEmit   # tipos
+npm run lint       # ESLint
+npm run build      # build de producción
+```

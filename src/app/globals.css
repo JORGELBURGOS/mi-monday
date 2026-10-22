@@ -1,26 +1,179 @@
 @import "tailwindcss";
+@import "@fontsource-variable/manrope";
 
+/* ---------------------------------------------------------------------------
+ * Tokens de diseño. Modo claro por defecto; modo oscuro según el sistema.
+ * Toda la UI usa estos tokens, así no se duplican estilos por tema.
+ * ------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light;
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #f0eee9;
+  --surface-3: #e7e4dd;
+  --line: #e2ded6;
+  --line-strong: #cbc6bc;
+  --fg: #1d1b18;
+  --muted: #625d55;
+  --subtle: #8a847a;
+  --accent: #b4451f;
+  --accent-hover: #983a1a;
+  --accent-fg: #ffffff;
+  --accent-soft: #fbece5;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #1c7c4a;
+  --success-soft: #e5f4ec;
+  --warning: #93600b;
+  --warning-soft: #fdf3dc;
+  --focus: #2f6fd6;
+  --shadow: 0 1px 2px rgb(29 27 24 / 0.06), 0 4px 16px rgb(29 27 24 / 0.06);
+  --shadow-lg: 0 12px 40px rgb(29 27 24 / 0.18);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --chip-gray-bg: #ecebe8;   --chip-gray-fg: #45423c;   --chip-gray-dot: #8b877f;
+  --chip-amber-bg: #fdf0cf;  --chip-amber-fg: #7a4e05;  --chip-amber-dot: #d99a12;
+  --chip-blue-bg: #e1ecfd;   --chip-blue-fg: #1d4f9a;   --chip-blue-dot: #3b7be0;
+  --chip-green-bg: #dff3e6;  --chip-green-fg: #1a6a3e;  --chip-green-dot: #2f9e5e;
+  --chip-red-bg: #fde3e1;    --chip-red-fg: #a3241a;    --chip-red-dot: #e0483b;
+  --chip-violet-bg: #ece6fb; --chip-violet-fg: #5534a8; --chip-violet-dot: #8460dc;
+  --chip-teal-bg: #dcf2f0;   --chip-teal-fg: #17635c;   --chip-teal-dot: #26a091;
+  --chip-pink-bg: #fbe3ef;   --chip-pink-fg: #9c2560;   --chip-pink-dot: #db4f91;
+  --chip-orange-bg: #fde7d9; --chip-orange-fg: #9a3f0d; --chip-orange-dot: #e9752f;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+    --bg: #131210;
+    --surface: #1b1a17;
+    --surface-2: #24221f;
+    --surface-3: #2e2b27;
+    --line: #34312c;
+    --line-strong: #4a463f;
+    --fg: #eeebe5;
+    --muted: #b0aa9f;
+    --subtle: #8a847a;
+    --accent: #f0895c;
+    --accent-hover: #f6a17b;
+    --accent-fg: #1d1b18;
+    --accent-soft: #3a2419;
+    --danger: #f2877d;
+    --danger-soft: #3b1d1a;
+    --success: #6fcf98;
+    --success-soft: #16301f;
+    --warning: #f1c15a;
+    --warning-soft: #3a2c10;
+    --focus: #7aa7f5;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 12px 40px rgb(0 0 0 / 0.55);
+
+    --chip-gray-bg: #2f2d29;   --chip-gray-fg: #d6d2cb;   --chip-gray-dot: #9a958c;
+    --chip-amber-bg: #3d2f0e;  --chip-amber-fg: #f5d58a;  --chip-amber-dot: #e3a82a;
+    --chip-blue-bg: #172a47;   --chip-blue-fg: #a9c8f8;   --chip-blue-dot: #5b93ea;
+    --chip-green-bg: #15301f;  --chip-green-fg: #9fdcb7;  --chip-green-dot: #44b574;
+    --chip-red-bg: #3d1a17;    --chip-red-fg: #f6aaa2;    --chip-red-dot: #e8625a;
+    --chip-violet-bg: #2a2045; --chip-violet-fg: #cbbaf5; --chip-violet-dot: #9c7fe6;
+    --chip-teal-bg: #12302d;   --chip-teal-fg: #95ddd4;   --chip-teal-dot: #36b3a3;
+    --chip-pink-bg: #3b1a2b;   --chip-pink-fg: #f3abcd;   --chip-pink-dot: #e46aa4;
+    --chip-orange-bg: #3b2213; --chip-orange-fg: #f6be98; --chip-orange-dot: #ef8c4c;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Foco visible y consistente para teclado. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Chips de color: el texto siempre acompaña al color. */
+.chip-gray   { background-color: var(--chip-gray-bg);   color: var(--chip-gray-fg);   --dot: var(--chip-gray-dot); }
+.chip-amber  { background-color: var(--chip-amber-bg);  color: var(--chip-amber-fg);  --dot: var(--chip-amber-dot); }
+.chip-blue   { background-color: var(--chip-blue-bg);   color: var(--chip-blue-fg);   --dot: var(--chip-blue-dot); }
+.chip-green  { background-color: var(--chip-green-bg);  color: var(--chip-green-fg);  --dot: var(--chip-green-dot); }
+.chip-red    { background-color: var(--chip-red-bg);    color: var(--chip-red-fg);    --dot: var(--chip-red-dot); }
+.chip-violet { background-color: var(--chip-violet-bg); color: var(--chip-violet-fg); --dot: var(--chip-violet-dot); }
+.chip-teal   { background-color: var(--chip-teal-bg);   color: var(--chip-teal-fg);   --dot: var(--chip-teal-dot); }
+.chip-pink   { background-color: var(--chip-pink-bg);   color: var(--chip-pink-fg);   --dot: var(--chip-pink-dot); }
+.chip-orange { background-color: var(--chip-orange-bg); color: var(--chip-orange-fg); --dot: var(--chip-orange-dot); }
+
+.dot-gray   { --dot: var(--chip-gray-dot); }
+.dot-amber  { --dot: var(--chip-amber-dot); }
+.dot-blue   { --dot: var(--chip-blue-dot); }
+.dot-green  { --dot: var(--chip-green-dot); }
+.dot-red    { --dot: var(--chip-red-dot); }
+.dot-violet { --dot: var(--chip-violet-dot); }
+.dot-teal   { --dot: var(--chip-teal-dot); }
+.dot-pink   { --dot: var(--chip-pink-dot); }
+.dot-orange { --dot: var(--chip-orange-dot); }
+
+/* Select nativo con aspecto de chip (accesible y usable en móviles). */
+.select-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 13px) 52%, calc(100% - 9px) 52%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 1.75rem;
+}
+.select-chip option {
+  background: var(--surface);
+  color: var(--fg);
+}
+
+dialog::backdrop {
+  background: rgb(19 18 16 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-in {
+    animation: fade-up 160ms ease-out;
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
 }
