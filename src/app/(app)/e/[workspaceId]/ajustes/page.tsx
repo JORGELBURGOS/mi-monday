@@ -8,7 +8,7 @@ import { uuidSchema } from "@/lib/validation";
 import { DeleteWorkspace } from "./delete-workspace";
 import { formatDate } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Ajustes del espacio" };
+export const metadata: Metadata = { title: "Ajustes de la empresa" };
 
 export default async function WorkspaceSettingsPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
@@ -21,7 +21,7 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
-      <PageHeader eyebrow={workspace.name} title="Ajustes del espacio" description={`Creado el ${formatDate(workspace.created_at)}.`} />
+      <PageHeader eyebrow={workspace.name} title="Ajustes de la empresa" description={`Creado el ${formatDate(workspace.created_at)}.`} />
       {canEdit ? (
         <div className="space-y-6">
           <Card>
@@ -31,7 +31,7 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
             <Card className="border-danger/30">
               <h2 className="font-bold text-danger">Zona de peligro</h2>
               <p className="mt-1 text-sm text-muted">
-                Eliminar el espacio borra para siempre todos sus tableros, tareas y comentarios.
+                Eliminar la empresa borra para siempre todos sus tableros, tareas y comentarios.
               </p>
               <DeleteWorkspace workspaceId={workspace.id} name={workspace.name} />
             </Card>
@@ -39,7 +39,7 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
         </div>
       ) : (
         <Card>
-          <p className="text-sm text-muted">Solo propietarios y administradores pueden cambiar los ajustes de este espacio.</p>
+          <p className="text-sm text-muted">Solo los administradores pueden cambiar los ajustes de esta empresa.</p>
         </Card>
       )}
     </div>

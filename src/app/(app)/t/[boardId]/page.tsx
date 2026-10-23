@@ -49,7 +49,7 @@ export default async function BoardPage({ params, searchParams }: Props) {
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
             <span className="inline-flex items-center gap-1">
               {board.visibility === "private" ? <IconLock size={14} /> : <IconUsers size={14} />}
-              {board.visibility === "private" ? "Privado" : "Compartido con el espacio"}
+              {board.visibility === "private" ? "Acceso restringido" : "Todo el equipo"}
             </span>
             {board.description && <span className="max-w-2xl">{board.description}</span>}
           </p>

@@ -10,7 +10,7 @@ export default function RecoverPage() {
       <h1 className="text-2xl font-extrabold tracking-tight">¿Olvidaste tu contraseña?</h1>
       <div className="mb-6 mt-3 space-y-3 text-sm leading-relaxed text-muted">
         <p>
-          Pedile a un administrador de tu espacio de trabajo que te asigne una <strong className="text-fg">contraseña temporal</strong>.
+          Pedile a un administrador de tu empresa que te asigne una <strong className="text-fg">contraseña temporal</strong>.
           Lo hace desde la sección <em>Miembros</em>, en un minuto.
         </p>
         <p>Cuando entres con la temporal, el sistema te va a pedir que elijas una nueva.</p>

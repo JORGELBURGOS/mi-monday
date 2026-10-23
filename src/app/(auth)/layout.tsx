@@ -15,7 +15,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             Cada tarea con dueño, fecha y estado claro.
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-[#bdb6aa]">
-            Tableros compartidos para tu equipo, con permisos por espacio y roles. Todo queda ordenado y a la vista.
+            Tableros compartidos para tu equipo, con acceso por tablero y roles. Todo queda ordenado y a la vista.
           </p>
         </div>
         <BoardSketch />

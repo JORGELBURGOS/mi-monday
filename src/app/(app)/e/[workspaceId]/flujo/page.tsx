@@ -77,7 +77,7 @@ export default async function WorkspaceFlowPage({ params }: { params: Promise<{ 
           </Link>
         }
         title="Flujo entre tableros"
-        description="Cómo viajan los ítems de una etapa a otra dentro del espacio. Cada tablero es una etapa; las reglas los conectan."
+        description="Cómo viajan los ítems de una etapa a otra dentro de la empresa. Cada tablero es una etapa; las reglas los conectan."
       />
 
       {flow.automations.length === 0 ? (

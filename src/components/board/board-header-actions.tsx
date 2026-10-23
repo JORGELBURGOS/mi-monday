@@ -63,7 +63,7 @@ export function BoardHeaderActions({
         open={confirmArchive}
         onClose={() => setConfirmArchive(false)}
         title="Archivar tablero"
-        description="El tablero deja de aparecer en la navegación y queda en solo lectura. Podés restaurarlo cuando quieras desde la página del espacio."
+        description="El tablero deja de aparecer en la navegación y queda en solo lectura. Podés restaurarlo cuando quieras desde la página de la empresa."
         confirmLabel="Archivar"
         danger={false}
         onConfirm={() => {

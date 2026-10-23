@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getBoardData } from "@/lib/data";
+import { getBoardData, getBoardGrants } from "@/lib/data";
 import { uuidSchema } from "@/lib/validation";
 import { Card, PageHeader } from "@/components/ui/misc";
 import { BoardForm } from "@/components/board-form";
 import { StatusManager } from "./status-manager";
+import { BoardAccess } from "./board-access";
 import { ColumnManager } from "./column-manager";
 import { readValues } from "@/lib/columns";
 import { BoardHeaderActions } from "@/components/board/board-header-actions";
@@ -19,7 +20,8 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
   const user = await requireUser(`/t/${boardId}/ajustes`);
   const data = await getBoardData(boardId, user.id);
   if (!data) notFound();
-  const { board, canManage, statuses, tasks, columns } = data;
+  const { board, canManage, statuses, tasks, columns, members } = data;
+  const granted = canManage ? await getBoardGrants(board.id) : [];
 
   const usage = Object.fromEntries(statuses.map((s) => [s.id, tasks.filter((t) => t.status_id === s.id).length]));
   const values = tasks.map((t) => readValues(t.custom_values));
@@ -38,7 +40,7 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
       {!canManage ? (
         <Card>
           <p className="text-sm text-muted">
-            Solo quien creó el tablero o un administrador del espacio puede cambiar sus ajustes.
+            Solo quien creó el tablero o un administrador de la empresa puede cambiar sus ajustes.
           </p>
         </Card>
       ) : (
@@ -46,6 +48,19 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
           <Card>
             <h2 className="mb-4 font-bold">General</h2>
             <BoardForm board={{ id: board.id, name: board.name, description: board.description, visibility: board.visibility }} />
+          </Card>
+          <Card>
+            <h2 className="font-bold">Acceso</h2>
+            <p className="mb-4 mt-1 text-sm text-muted">
+              Quién puede ver y trabajar en este tablero. Los administradores de la empresa siempre tienen acceso.
+            </p>
+            <BoardAccess
+              boardId={board.id}
+              visibility={board.visibility}
+              createdBy={board.created_by}
+              members={members.filter((m) => !m.deactivated_at || granted.includes(m.user_id))}
+              granted={granted}
+            />
           </Card>
           <Card>
             <h2 className="font-bold">Estados</h2>

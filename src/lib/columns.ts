@@ -80,7 +80,7 @@ export function normalizeValue(
     case "person": {
       const v = String(raw);
       if (!z.uuid().safeParse(v).success) return { ok: false, error: "Persona inválida." };
-      if (memberIds && !memberIds.has(v)) return { ok: false, error: "La persona tiene que ser miembro del espacio." };
+      if (memberIds && !memberIds.has(v)) return { ok: false, error: "La persona tiene que ser usuario de la empresa." };
       return { ok: true, value: v };
     }
     case "list": {

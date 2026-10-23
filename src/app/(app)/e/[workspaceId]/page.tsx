@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { workspaceId } = await params;
   const user = await requireUser();
   const ws = uuidSchema.safeParse(workspaceId).success ? await getWorkspace(workspaceId, user.id) : null;
-  return { title: ws?.name ?? "Espacio" };
+  return { title: ws?.name ?? "Empresa" };
 }
 
 export default async function WorkspacePage({ params }: Props) {
@@ -35,7 +35,7 @@ export default async function WorkspacePage({ params }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
       <PageHeader
-        eyebrow={<span>Espacio de trabajo · Tu rol: {ROLE_LABELS[workspace.role]}</span>}
+        eyebrow={<span>Empresa · Tu rol: {ROLE_LABELS[workspace.role]}</span>}
         title={workspace.name}
         description={workspace.description}
         actions={
@@ -60,7 +60,7 @@ export default async function WorkspacePage({ params }: Props) {
         {active.length === 0 ? (
           <EmptyState
             icon={<IconBoard />}
-            title="Este espacio todavía no tiene tableros"
+            title="Esta empresa todavía no tiene tableros"
             description="Usá “Nuevo tablero” para crear el primero. Arranca con estados y una carpeta lista para cargar tareas."
           />
         ) : (

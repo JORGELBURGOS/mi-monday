@@ -26,6 +26,8 @@ export type Member = {
   created_at: string;
   full_name: string | null;
   email: string | null;
+  deactivated_at?: string | null;
+  must_change_password?: boolean;
 };
 
 export type WorkspaceWithRole = Workspace & { role: WorkspaceRole };
@@ -36,7 +38,7 @@ export const getMyWorkspaces = cache(async (userId: string): Promise<WorkspaceWi
     .from("workspace_members")
     .select("role, workspaces!inner(*)")
     .eq("user_id", userId);
-  if (error) throw new Error("No se pudieron cargar tus espacios.");
+  if (error) throw new Error("No se pudieron cargar tus empresas.");
   return (data ?? [])
     .map((row) => ({ ...(row.workspaces as Workspace), role: row.role }))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
@@ -92,7 +94,7 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<Member[]
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("workspace_members")
-    .select("user_id, role, created_at, profiles!inner(full_name, email)")
+    .select("user_id, role, created_at, profiles!inner(full_name, email, deactivated_at, must_change_password)")
     .eq("workspace_id", workspaceId);
   if (error) throw new Error("No se pudieron cargar los miembros.");
   const order: Record<WorkspaceRole, number> = { owner: 0, admin: 1, member: 2 };
@@ -103,6 +105,8 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<Member[]
       created_at: m.created_at,
       full_name: m.profiles?.full_name ?? null,
       email: m.profiles?.email ?? null,
+      deactivated_at: m.profiles?.deactivated_at ?? null,
+      must_change_password: m.profiles?.must_change_password ?? false,
     }))
     .sort((a, b) => order[a.role] - order[b.role] || displayName(a).localeCompare(displayName(b), "es"));
 }
@@ -202,3 +206,36 @@ export async function getWorkspaceFlow(workspaceId: string, userId: string): Pro
   };
 }
 
+
+/* -------------------------------------------------------- accesos a tableros */
+
+export type AccessBoard = Pick<Board, "id" | "name" | "visibility" | "is_archived">;
+
+/** Tableros de la empresa y quién tiene acceso explícito a cada uno. */
+export async function getWorkspaceAccess(workspaceId: string): Promise<{ boards: AccessBoard[]; grants: { board_id: string; user_id: string }[] }> {
+  const supabase = await createClient();
+  const { data: boards, error } = await supabase
+    .from("boards")
+    .select("id, name, visibility, is_archived")
+    .eq("workspace_id", workspaceId)
+    .order("name");
+  if (error) throw new Error("No se pudieron cargar los tableros.");
+  const ids = (boards ?? []).map((b) => b.id);
+  if (ids.length === 0) return { boards: [], grants: [] };
+  const { data: grants } = await supabase.from("board_members").select("board_id, user_id").in("board_id", ids);
+  return { boards: boards ?? [], grants: grants ?? [] };
+}
+
+/** ¿El usuario es superadministrador? */
+export const isPlatformAdmin = cache(async (userId: string): Promise<boolean> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("is_platform_admin").eq("id", userId).maybeSingle();
+  return Boolean(data?.is_platform_admin);
+});
+
+/** Personas con acceso explícito a un tablero. */
+export async function getBoardGrants(boardId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("board_members").select("user_id").eq("board_id", boardId);
+  return (data ?? []).map((g) => g.user_id);
+}

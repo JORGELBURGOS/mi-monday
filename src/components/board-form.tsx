@@ -45,13 +45,14 @@ export function BoardForm({
       <Field id={`${uid}-desc`} label="Descripción" hint="Opcional" error={err("description")}>
         <Textarea id={`${uid}-desc`} name="description" maxLength={1000} defaultValue={board?.description ?? ""} className="min-h-20" />
       </Field>
+      {!board && (
       <fieldset>
         <legend className="mb-2 text-sm font-semibold">Quién puede verlo</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {(
             [
-              ["workspace", "Compartido", "Todos los miembros del espacio."],
-              ["private", "Privado", "Solo vos (y el propietario del espacio)."],
+              ["workspace", "Todo el equipo", "Todos los usuarios de la empresa."],
+              ["private", "Solo personas elegidas", "Vos, los administradores y a quienes les des acceso."],
             ] as const
           ).map(([value, label, hint]) => (
             <label
@@ -62,7 +63,7 @@ export function BoardForm({
                 type="radio"
                 name="visibility"
                 value={value}
-                defaultChecked={(board?.visibility ?? "workspace") === value}
+                defaultChecked={value === "workspace"}
                 className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
               />
               <span>
@@ -73,6 +74,7 @@ export function BoardForm({
           ))}
         </div>
       </fieldset>
+      )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         {onCancel && <Button onClick={onCancel}>Cancelar</Button>}
         <SubmitButton pendingLabel={board ? "Guardando…" : "Creando…"}>{board ? "Guardar cambios" : "Crear tablero"}</SubmitButton>

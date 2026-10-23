@@ -17,14 +17,14 @@ export const PRIORITY_BY_VALUE = Object.fromEntries(PRIORITIES.map((p) => [p.val
 >;
 
 export const ROLE_LABELS: Record<WorkspaceRole, string> = {
-  owner: "Propietario",
+  owner: "Administrador principal",
   admin: "Administrador",
-  member: "Miembro",
+  member: "Usuario",
 };
 
 export const VISIBILITY_LABELS: Record<Visibility, string> = {
-  workspace: "Compartido con el espacio",
-  private: "Privado (solo vos)",
+  workspace: "Todo el equipo de la empresa",
+  private: "Solo las personas con acceso",
 };
 
 export const COLOR_NAMES = ["gray", "amber", "blue", "green", "red", "violet", "teal", "pink", "orange"] as const;

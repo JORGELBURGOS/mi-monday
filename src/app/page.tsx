@@ -12,8 +12,8 @@ export default function LandingPage() {
     },
     {
       icon: <IconUsers />,
-      title: "Espacios con roles",
-      text: "Propietarios, administradores y miembros. Cada espacio ve solo lo suyo.",
+      title: "Empresas con roles",
+      text: "Administradores y usuarios con acceso por tablero. Cada empresa ve solo lo suyo.",
     },
     {
       icon: <IconCalendar />,

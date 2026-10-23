@@ -34,12 +34,14 @@ export function AppShell({
   workspaces,
   boards,
   unread,
+  superadmin,
   children,
 }: {
   user: { email: string; name: string | null };
   workspaces: SidebarWorkspace[];
   boards: SidebarBoard[];
   unread: number;
+  superadmin: boolean;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -59,7 +61,7 @@ export function AppShell({
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
-  const sidebar = <SidebarContent user={user} workspaces={workspaces} boards={boards} pathname={pathname} unread={unread} />;
+  const sidebar = <SidebarContent user={user} workspaces={workspaces} boards={boards} pathname={pathname} unread={unread} superadmin={superadmin} />;
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
@@ -144,10 +146,12 @@ function SidebarContent({
   boards,
   pathname,
   unread,
+  superadmin,
 }: {
   user: { email: string; name: string | null };
   workspaces: SidebarWorkspace[];
   boards: SidebarBoard[];
+  superadmin: boolean;
   pathname: string;
   unread: number;
 }) {
@@ -176,21 +180,28 @@ function SidebarContent({
             )}
           </span>
         </NavLink>
+        {superadmin && (
+          <NavLink href="/superadmin" active={pathname === "/superadmin"} icon={<IconSettings size={17} />}>
+            Superadmin
+          </NavLink>
+        )}
 
-        <div className="mb-1 mt-5 flex items-center justify-between px-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-subtle">Espacios</span>
-          <Link
-            href="/espacios/nuevo"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
-            aria-label="Crear espacio de trabajo"
-            title="Crear espacio"
-          >
-            <IconPlus size={16} />
-          </Link>
+        <div className="mb-1 mt-5 flex min-h-7 items-center justify-between px-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-subtle">{workspaces.length === 1 ? "Empresa" : "Empresas"}</span>
+          {superadmin && (
+            <Link
+              href="/superadmin"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
+              aria-label="Dar de alta una empresa"
+              title="Nueva empresa"
+            >
+              <IconPlus size={16} />
+            </Link>
+          )}
         </div>
 
         {workspaces.length === 0 ? (
-          <p className="px-2 py-2 text-sm text-muted">Todavía no tenés espacios.</p>
+          <p className="px-2 py-2 text-sm text-muted">Todavía no tenés acceso a ninguna empresa.</p>
         ) : (
           <ul className="space-y-0.5">
             {workspaces.map((ws) => (
@@ -317,7 +328,7 @@ function WorkspaceNode({
                 icon={b.visibility === "private" ? <IconLock size={15} /> : <IconBoard size={15} />}
               >
                 {b.name}
-                {b.visibility === "private" && <span className="sr-only"> (privado)</span>}
+                {b.visibility === "private" && <span className="sr-only"> (acceso restringido)</span>}
               </NavLink>
             </li>
           ))}
@@ -348,7 +359,7 @@ function WorkspaceNode({
               icon={<IconUsers size={15} />}
               className="text-muted"
             >
-              Miembros
+              Usuarios
             </NavLink>
           </li>
           {(workspace.role === "owner" || workspace.role === "admin") && (
@@ -359,7 +370,7 @@ function WorkspaceNode({
                 icon={<IconSettings size={15} />}
                 className="text-muted"
               >
-                Ajustes del espacio
+                Ajustes de la empresa
               </NavLink>
             </li>
           )}

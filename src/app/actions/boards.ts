@@ -21,7 +21,7 @@ function readBoardForm(formData: FormData) {
 export async function createBoardAction(workspaceId: string, _prev: BoardFormState, formData: FormData): Promise<BoardFormState> {
   const ctx = await actionContext();
   if (!ctx) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(workspaceId).success) return fail("Espacio inválido.");
+  if (!uuidSchema.safeParse(workspaceId).success) return fail("Empresa inválida.");
 
   const parsed = readBoardForm(formData);
   if (!parsed.success) return fromZod(parsed.error);
@@ -45,7 +45,9 @@ export async function updateBoardAction(boardId: string, _prev: BoardFormState, 
   const parsed = readBoardForm(formData);
   if (!parsed.success) return fromZod(parsed.error);
 
-  const { data, error } = await ctx.supabase.from("boards").update(parsed.data).eq("id", boardId).select("id");
+  // La visibilidad se cambia desde la sección "Acceso" (setBoardVisibilityAction).
+  const { name, description } = parsed.data;
+  const { data, error } = await ctx.supabase.from("boards").update({ name, description }).eq("id", boardId).select("id");
   if (error) return fromDb(error);
   if (!data?.length) return fail("Solo quien creó el tablero o un administrador puede editarlo.");
 

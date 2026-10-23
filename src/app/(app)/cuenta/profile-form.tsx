@@ -13,7 +13,7 @@ export function ProfileForm({ fullName }: { fullName: string }) {
     <form action={action} className="space-y-4" noValidate>
       {state && !state.ok && !state.fieldErrors && <FormAlert>{state.error}</FormAlert>}
       {state?.ok && <FormAlert tone="success">{state.message}</FormAlert>}
-      <Field id={`${uid}-n`} label="Nombre visible" hint="Lo ven los miembros de tus espacios" error={error}>
+      <Field id={`${uid}-n`} label="Nombre visible" hint="Lo ven los usuarios de tu empresa" error={error}>
         <Input
           id={`${uid}-n`}
           name="fullName"

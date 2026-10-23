@@ -26,7 +26,7 @@ export async function createWorkspaceAction(_prev: FormState, formData: FormData
     .insert({ name: parsed.data.name, description: parsed.data.description, created_by: ctx.user.id })
     .select("id")
     .single();
-  if (error || !ws) return fromDb(error, "No se pudo crear el espacio.");
+  if (error || !ws) return fromDb(error, "No se pudo crear la empresa.");
 
   let target = `/e/${ws.id}`;
   if (parsed.data.withSample) {
@@ -92,7 +92,7 @@ async function createSampleBoard(supabase: Awaited<ReturnType<typeof createClien
 export async function updateWorkspaceAction(workspaceId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const ctx = await actionContext();
   if (!ctx) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(workspaceId).success) return fail("Espacio inválido.");
+  if (!uuidSchema.safeParse(workspaceId).success) return fail("Empresa inválida.");
 
   const parsed = workspaceSchema.safeParse({
     name: formData.get("name"),
@@ -106,7 +106,7 @@ export async function updateWorkspaceAction(workspaceId: string, _prev: FormStat
     .eq("id", workspaceId)
     .select("id");
   if (error) return fromDb(error);
-  if (!data?.length) return fail("Solo propietarios y administradores pueden editar el espacio.");
+  if (!data?.length) return fail("Solo los administradores pueden editar la empresa.");
 
   revalidatePath("/", "layout");
   return ok(undefined, "Cambios guardados.");
@@ -115,11 +115,11 @@ export async function updateWorkspaceAction(workspaceId: string, _prev: FormStat
 export async function deleteWorkspaceAction(workspaceId: string): Promise<ActionResult> {
   const ctx = await actionContext();
   if (!ctx) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(workspaceId).success) return fail("Espacio inválido.");
+  if (!uuidSchema.safeParse(workspaceId).success) return fail("Empresa inválida.");
 
   const { data, error } = await ctx.supabase.from("workspaces").delete().eq("id", workspaceId).select("id");
-  if (error) return fromDb(error, "No se pudo eliminar el espacio.");
-  if (!data?.length) return fail("Solo un propietario puede eliminar el espacio.");
+  if (error) return fromDb(error, "No se pudo eliminar la empresa.");
+  if (!data?.length) return fail("Solo el administrador principal puede eliminar la empresa.");
 
   revalidatePath("/", "layout");
   redirect("/inicio");
@@ -128,7 +128,7 @@ export async function deleteWorkspaceAction(workspaceId: string): Promise<Action
 export async function leaveWorkspaceAction(workspaceId: string): Promise<ActionResult> {
   const ctx = await actionContext();
   if (!ctx) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(workspaceId).success) return fail("Espacio inválido.");
+  if (!uuidSchema.safeParse(workspaceId).success) return fail("Empresa inválida.");
 
   const { data, error } = await ctx.supabase
     .from("workspace_members")
@@ -136,8 +136,8 @@ export async function leaveWorkspaceAction(workspaceId: string): Promise<ActionR
     .eq("workspace_id", workspaceId)
     .eq("user_id", ctx.user.id)
     .select("user_id");
-  if (error) return fromDb(error, "No pudiste salir del espacio.");
-  if (!data?.length) return fail("No sos miembro de este espacio.");
+  if (error) return fromDb(error, "No pudiste salir de la empresa.");
+  if (!data?.length) return fail("No sos parte de esta empresa.");
 
   revalidatePath("/", "layout");
   redirect("/inicio");

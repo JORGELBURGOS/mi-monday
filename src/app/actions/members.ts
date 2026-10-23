@@ -41,7 +41,7 @@ export async function removeMemberAction(workspaceId: string, userId: string): P
   if (!data?.length) return fail("No tenés permiso para quitar a esa persona.");
 
   revalidatePath(`/e/${workspaceId}`, "layout");
-  return ok(undefined, "Miembro quitado del espacio.");
+  return ok(undefined, "Usuario quitado de la empresa.");
 }
 
 /* ----------------------------------------------------------- acceso a tableros */

@@ -61,7 +61,7 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
         description="Vetta trabaja sola: reacciona a cambios, vigila fechas y vencimientos, avisa a las personas y mueve los ítems por la cadena. Todo queda registrado en el recorrido de cada ítem."
         actions={
           <Link href={`/e/${board.workspace_id}/flujo`} className="text-sm font-semibold text-accent hover:underline">
-            Ver el flujo completo del espacio →
+            Ver el flujo completo de la empresa →
           </Link>
         }
       />

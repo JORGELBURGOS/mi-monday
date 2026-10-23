@@ -1034,7 +1034,7 @@ function ActionDetails({
               <option value="">Elegí a quién</option>
               <option value="assignee">El responsable del ítem</option>
               <option value="creator">Quien creó el ítem</option>
-              <option value="admins">Los administradores del espacio</option>
+              <option value="admins">Los administradores de la empresa</option>
               <option value="user">Una persona en particular</option>
             </Select>
           </Field>
@@ -1145,7 +1145,7 @@ function ChainDetails({
   return (
     <div className="space-y-4">
       {targets.length === 0 ? (
-        <p className="text-sm text-muted">No administrás ningún tablero activo en este espacio.</p>
+        <p className="text-sm text-muted">No administrás ningún tablero activo en esta empresa.</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-3">
           <Field id={`${uid}-tb`} label={linked ? (d.mode === "origin" ? "Tablero del original" : "Tablero de las copias") : "Tablero"}>

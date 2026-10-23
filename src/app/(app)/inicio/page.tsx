@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getMyWorkspaces, getRecentBoards } from "@/lib/data";
+import { getMyWorkspaces, getRecentBoards, isPlatformAdmin } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { BoardCard } from "@/components/board-card";
 import { EmptyState, PageHeader, SectionTitle } from "@/components/ui/misc";
@@ -14,10 +14,11 @@ export const metadata: Metadata = { title: "Inicio" };
 export default async function HomePage() {
   const user = await requireUser("/inicio");
   const supabase = await createClient();
-  const [workspaces, recent, profile] = await Promise.all([
+  const [workspaces, recent, profile, superadmin] = await Promise.all([
     getMyWorkspaces(user.id),
     getRecentBoards(9),
     supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+    isPlatformAdmin(user.id),
   ]);
   const wsName = new Map(workspaces.map((w) => [w.id, w.name]));
   const firstName = profile.data?.full_name?.split(" ")[0];
@@ -26,11 +27,11 @@ export default async function HomePage() {
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
       <PageHeader
         title={firstName ? `Hola, ${firstName}` : "Inicio"}
-        description="Tus tableros recientes y espacios de trabajo."
+        description={workspaces.length > 1 ? "Tus tableros recientes y tus empresas." : "Tus tableros recientes."}
         actions={
-          workspaces.length > 0 && (
-            <Link href="/espacios/nuevo" className={buttonClasses("secondary")}>
-              <IconPlus size={16} /> Nuevo espacio
+          superadmin && (
+            <Link href="/superadmin" className={buttonClasses("secondary")}>
+              <IconPlus size={16} /> Nueva empresa
             </Link>
           )
         }
@@ -39,12 +40,18 @@ export default async function HomePage() {
       {workspaces.length === 0 ? (
         <EmptyState
           icon={<IconUsers />}
-          title="Creá tu primer espacio de trabajo"
-          description="Un espacio agrupa los tableros de un equipo o un proyecto. Después podés sumar a otras personas desde Miembros."
+          title={superadmin ? "Dá de alta la primera empresa" : "Todavía no tenés acceso a ninguna empresa"}
+          description={
+            superadmin
+              ? "Cada empresa tiene sus propios usuarios y tableros. Se crea junto con su administrador."
+              : "Pedile al administrador de tu empresa que te sume y te dé acceso a los tableros."
+          }
           action={
-            <Link href="/espacios/nuevo" className={buttonClasses("primary")}>
-              <IconPlus size={16} /> Crear espacio
-            </Link>
+            superadmin ? (
+              <Link href="/superadmin" className={buttonClasses("primary")}>
+                <IconPlus size={16} /> Nueva empresa
+              </Link>
+            ) : undefined
           }
         />
       ) : (
@@ -56,8 +63,8 @@ export default async function HomePage() {
             {recent.length === 0 ? (
               <EmptyState
                 icon={<IconBoard />}
-                title="Todavía no hay tableros"
-                description="Creá un tablero dentro de uno de tus espacios para empezar a organizar tareas."
+                title="Todavía no ves ningún tablero"
+                description="Pedile acceso al administrador de tu empresa o creá un tablero nuevo."
                 action={
                   <Link href={`/e/${workspaces[0].id}?nuevo=1`} className={buttonClasses("primary")}>
                     <IconPlus size={16} /> Crear tablero
@@ -75,7 +82,7 @@ export default async function HomePage() {
 
           <section aria-labelledby="ws-title">
             <SectionTitle>
-              <span id="ws-title">Tus espacios</span>
+              <span id="ws-title">{workspaces.length === 1 ? "Tu empresa" : "Tus empresas"}</span>
             </SectionTitle>
             <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {workspaces.map((w) => (

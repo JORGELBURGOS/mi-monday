@@ -12,13 +12,13 @@ export function DeleteWorkspace({ workspaceId, name }: { workspaceId: string; na
   return (
     <>
       <Button variant="outline-danger" className="mt-4" onClick={() => setOpen(true)}>
-        Eliminar espacio
+        Eliminar empresa
       </Button>
       <ConfirmDialog
         open={open}
         onClose={() => setOpen(false)}
-        title="Eliminar espacio"
-        description="Esta acción no se puede deshacer. Se eliminan todos los tableros, tareas, comentarios e invitaciones del espacio."
+        title="Eliminar empresa"
+        description="Esta acción no se puede deshacer. Se eliminan todos los tableros, tareas, comentarios e usuarios de la empresa."
         requireText={name}
         confirmLabel="Eliminar definitivamente"
         onConfirm={async () => {

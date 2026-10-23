@@ -37,7 +37,7 @@ export function WorkspaceForm({
           name="description"
           maxLength={500}
           defaultValue={workspace?.description ?? ""}
-          placeholder="¿Para qué es este espacio?"
+          placeholder="¿A qué se dedica esta empresa?"
         />
       </Field>
       {!workspace && (
@@ -52,7 +52,7 @@ export function WorkspaceForm({
         </label>
       )}
       <SubmitButton pendingLabel={workspace ? "Guardando…" : "Creando…"}>
-        {workspace ? "Guardar cambios" : "Crear espacio"}
+        {workspace ? "Guardar cambios" : "Crear empresa"}
       </SubmitButton>
     </form>
   );

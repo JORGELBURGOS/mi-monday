@@ -15,7 +15,17 @@ function isPublicPath(pathname: string) {
  * optimista a /login en rutas privadas. La autorización real se verifica en
  * el servidor (requireUser) y en la base de datos (RLS).
  */
+/** Direcciones anteriores de la app: redirigen a la actual. */
+const LEGACY_HOSTS = new Set(["mi-monday.vercel.app", "vetta-trazabilidad.vercel.app"]);
+const CANONICAL_HOST = "vettaapp.vercel.app";
+
 export async function updateSession(request: NextRequest) {
+  const host = request.headers.get("host")?.toLowerCase();
+  if (host && LEGACY_HOSTS.has(host)) {
+    const target = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, `https://${CANONICAL_HOST}`);
+    return NextResponse.redirect(target, 308);
+  }
+
   let response = NextResponse.next({ request });
   const { url, key } = getSupabaseEnv();
 
