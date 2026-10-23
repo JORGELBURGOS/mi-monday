@@ -17,23 +17,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      automation_runs: {
+        Row: {
+          automation_id: string
+          created_at: string
+          error: string | null
+          fire_key: string | null
+          id: number
+          ok: boolean
+          task_id: string | null
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          error?: string | null
+          fire_key?: string | null
+          id?: never
+          ok?: boolean
+          task_id?: string | null
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          error?: string | null
+          fire_key?: string | null
+          id?: never
+          ok?: boolean
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "board_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_automations: {
         Row: {
+          action_config: Json
           action_type: string
           board_id: string
           column_map: Json
+          conditions: Json
           copy_fields: string[]
           created_at: string
           created_by: string | null
           extra_values: Json
           id: string
           is_active: boolean
+          legacy_action_type: string
+          legacy_trigger_type: string
           link_direction: string | null
           name: string
           position: number
           target_board_id: string
           target_group_id: string | null
           target_status_id: string | null
+          trigger_config: Json
           trigger_group_id: string | null
           trigger_status_id: string | null
           trigger_type: string
@@ -41,21 +84,26 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          action_config?: Json
           action_type: string
           board_id: string
           column_map?: Json
+          conditions?: Json
           copy_fields?: string[]
           created_at?: string
           created_by?: string | null
           extra_values?: Json
           id?: string
           is_active?: boolean
+          legacy_action_type?: string
+          legacy_trigger_type?: string
           link_direction?: string | null
           name: string
           position?: number
           target_board_id: string
           target_group_id?: string | null
           target_status_id?: string | null
+          trigger_config?: Json
           trigger_group_id?: string | null
           trigger_status_id?: string | null
           trigger_type: string
@@ -63,21 +111,26 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          action_config?: Json
           action_type?: string
           board_id?: string
           column_map?: Json
+          conditions?: Json
           copy_fields?: string[]
           created_at?: string
           created_by?: string | null
           extra_values?: Json
           id?: string
           is_active?: boolean
+          legacy_action_type?: string
+          legacy_trigger_type?: string
           link_direction?: string | null
           name?: string
           position?: number
           target_board_id?: string
           target_group_id?: string | null
           target_status_id?: string | null
+          trigger_config?: Json
           trigger_group_id?: string | null
           trigger_status_id?: string | null
           trigger_type?: string
@@ -345,6 +398,63 @@ export type Database = {
           },
           {
             foreignKeyName: "boards_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          automation_id: string | null
+          automation_name: string | null
+          board_id: string | null
+          body: string | null
+          created_at: string
+          id: number
+          read_at: string | null
+          task_id: string | null
+          title: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          automation_id?: string | null
+          automation_name?: string | null
+          board_id?: string | null
+          body?: string | null
+          created_at?: string
+          id?: never
+          read_at?: string | null
+          task_id?: string | null
+          title: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          automation_id?: string | null
+          automation_name?: string | null
+          board_id?: string | null
+          body?: string | null
+          created_at?: string
+          id?: never
+          read_at?: string | null
+          task_id?: string | null
+          title?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"

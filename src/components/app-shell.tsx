@@ -7,6 +7,7 @@ import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/cn";
 import { signOutAction } from "@/app/actions/auth";
 import {
+  IconBell,
   IconBoard,
   IconChevronDown,
   IconChevronRight,
@@ -32,11 +33,13 @@ export function AppShell({
   user,
   workspaces,
   boards,
+  unread,
   children,
 }: {
   user: { email: string; name: string | null };
   workspaces: SidebarWorkspace[];
   boards: SidebarBoard[];
+  unread: number;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -56,7 +59,7 @@ export function AppShell({
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
-  const sidebar = <SidebarContent user={user} workspaces={workspaces} boards={boards} pathname={pathname} />;
+  const sidebar = <SidebarContent user={user} workspaces={workspaces} boards={boards} pathname={pathname} unread={unread} />;
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
@@ -75,6 +78,14 @@ export function AppShell({
         <Link href="/inicio" className="flex items-center gap-2 font-extrabold">
           <LogoMark size={24} />
           <Wordmark name={siteConfig.name} />
+        </Link>
+        <Link
+          href="/avisos"
+          className="relative ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-surface-2"
+          aria-label={unread ? `Avisos: ${unread} sin leer` : "Avisos"}
+        >
+          <IconBell />
+          {unread > 0 && <UnreadBadge count={unread} className="absolute right-1 top-1" />}
         </Link>
       </div>
 
@@ -113,16 +124,32 @@ export function AppShell({
   );
 }
 
+function UnreadBadge({ count, className }: { count: number; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-fg",
+        className,
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function SidebarContent({
   user,
   workspaces,
   boards,
   pathname,
+  unread,
 }: {
   user: { email: string; name: string | null };
   workspaces: SidebarWorkspace[];
   boards: SidebarBoard[];
   pathname: string;
+  unread: number;
 }) {
   const displayName = user.name?.trim() || user.email;
   return (
@@ -137,6 +164,17 @@ function SidebarContent({
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         <NavLink href="/inicio" active={pathname === "/inicio"} icon={<IconHome size={17} />}>
           Inicio
+        </NavLink>
+        <NavLink href="/avisos" active={pathname === "/avisos"} icon={<IconBell size={17} />}>
+          <span className="flex flex-1 items-center justify-between gap-2">
+            Avisos
+            {unread > 0 && (
+              <>
+                <UnreadBadge count={unread} />
+                <span className="sr-only">: {unread} sin leer</span>
+              </>
+            )}
+          </span>
         </NavLink>
 
         <div className="mb-1 mt-5 flex items-center justify-between px-2">
@@ -220,7 +258,7 @@ function NavLink({
       )}
     >
       {icon && <span className={cn("shrink-0", active ? "text-accent" : "text-muted")}>{icon}</span>}
-      <span className="truncate">{children}</span>
+      <span className="flex min-w-0 flex-1 truncate">{children}</span>
     </Link>
   );
 }

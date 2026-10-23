@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getWorkspaceFlow, type FlowBoard } from "@/lib/data";
+import { getWorkspaceFlow, getWorkspaceMembers, type FlowBoard } from "@/lib/data";
 import { uuidSchema } from "@/lib/validation";
 import { describeAutomation } from "@/lib/automations";
 import { cn } from "@/lib/cn";
@@ -14,8 +14,11 @@ export const metadata: Metadata = { title: "Flujo entre tableros" };
 const ACTION_BADGE: Record<string, { label: string; className: string }> = {
   copy: { label: "Copia", className: "chip-blue" },
   move: { label: "Mueve", className: "chip-violet" },
-  update_linked: { label: "Avisa", className: "chip-amber" },
+  update_linked: { label: "Actualiza", className: "chip-amber" },
+  create_item: { label: "Crea", className: "chip-teal" },
+  notify: { label: "Avisa", className: "chip-pink" },
 };
+const SAME_ITEM_BADGE = { label: "Automatiza", className: "chip-gray" };
 
 /** Ordena los tableros siguiendo el sentido de las reglas (primero los que inician la cadena). */
 function flowOrder(boards: FlowBoard[], edges: { from: string; to: string }[]) {
@@ -53,12 +56,17 @@ export default async function WorkspaceFlowPage({ params }: { params: Promise<{ 
   const user = await requireUser(`/e/${workspaceId}/flujo`);
   const flow = await getWorkspaceFlow(workspaceId, user.id);
   if (!flow) notFound();
+  const members = await getWorkspaceMembers(workspaceId);
 
   const boards = flow.boards.filter((b) => !b.is_archived);
   const edges = flow.automations
-    .filter((a) => a.action_type !== "update_linked")
+    .filter((a) => ["copy", "move", "create_item"].includes(a.action_type) && a.target_board_id !== a.board_id)
     .map((a) => ({ from: a.board_id, to: a.target_board_id }));
-  const { chain, loose } = flowOrder(boards, edges);
+  const ordered = flowOrder(boards, edges);
+  // Los tableros con reglas propias (sin conexión con otros) también se muestran.
+  const hasRules = (id: string) => flow.automations.some((x) => x.board_id === id);
+  const chain = [...ordered.chain, ...ordered.loose.filter((b) => hasRules(b.id))];
+  const loose = ordered.loose.filter((b) => !hasRules(b.id));
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-8">
@@ -110,12 +118,12 @@ export default async function WorkspaceFlowPage({ params }: { params: Promise<{ 
                       </Link>
                     </div>
                     {outgoing.length === 0 ? (
-                      <p className="mt-1 text-sm text-muted">Fin de la cadena: este tablero no envía ítems a otros.</p>
+                      <p className="mt-1 text-sm text-muted">Este tablero no tiene reglas.</p>
                     ) : (
                       <ul className="mt-3 space-y-2">
                         {outgoing.map((a) => {
-                          const d = describeAutomation(a, flow.boards);
-                          const badge = ACTION_BADGE[a.action_type] ?? ACTION_BADGE.copy;
+                          const d = describeAutomation(a, flow.boards, members);
+                          const badge = ACTION_BADGE[a.action_type] ?? SAME_ITEM_BADGE;
                           return (
                             <li key={a.id} className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm", !a.is_active && "opacity-60")}>
                               <span className={cn(badge.className, "rounded-full px-2 py-0.5 text-xs font-semibold")}>{badge.label}</span>

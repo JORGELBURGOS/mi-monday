@@ -159,7 +159,7 @@ export async function listCommentsAction(taskId: string): Promise<ActionResult<C
       body: c.body,
       created_at: c.created_at,
       author_id: c.author_id,
-      author_name: c.profiles ? displayName(c.profiles) : "Ex miembro",
+      author_name: c.profiles ? displayName(c.profiles) : c.author_id ? "Ex miembro" : "Vetta · regla automática",
       is_mine: c.author_id === ctx.user.id,
     })),
   );

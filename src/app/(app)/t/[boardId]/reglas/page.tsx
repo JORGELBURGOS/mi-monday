@@ -7,7 +7,7 @@ import { uuidSchema } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader } from "@/components/ui/misc";
 import { describeAutomation } from "@/lib/automations";
-import { AutomationManager } from "./automation-manager";
+import { AutomationManager, type RunStats } from "./automation-manager";
 
 export const metadata: Metadata = { title: "Reglas del tablero" };
 
@@ -24,6 +24,29 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
   if (!current) notFound();
 
   const rules = flow.automations.filter((a) => a.board_id === boardId);
+  const stats: RunStats = {};
+  if (rules.length > 0) {
+    const { data: runs } = await supabase
+      .from("automation_runs")
+      .select("automation_id, ok, error, created_at, task_id, fire_key")
+      .in("automation_id", rules.map((r) => r.id))
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    for (const run of runs ?? []) {
+      // Las marcas internas de reglas programadas no cuentan como ejecución.
+      if (!run.task_id && run.fire_key?.startsWith("schedule|")) continue;
+      const st = (stats[run.automation_id] ??= { count: 0, last: null, errors: 0, lastError: null, lastErrorAt: null });
+      st.count += 1;
+      st.last ??= run.created_at;
+      if (!run.ok) {
+        st.errors += 1;
+        if (!st.lastError) {
+          st.lastError = run.error;
+          st.lastErrorAt = run.created_at;
+        }
+      }
+    }
+  }
   const incoming = flow.automations.filter((a) => a.target_board_id === boardId && a.board_id !== boardId && a.action_type !== "update_linked");
 
   return (
@@ -34,8 +57,8 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
             ← Volver a {board.name}
           </Link>
         }
-        title="Reglas entre tableros"
-        description="Cuando pasa algo con un ítem en este tablero, Vetta lo mueve, lo copia o avisa al resto de la cadena. Cada paso queda registrado en el recorrido del ítem."
+        title="Reglas automáticas"
+        description="Vetta trabaja sola: reacciona a cambios, vigila fechas y vencimientos, avisa a las personas y mueve los ítems por la cadena. Todo queda registrado en el recorrido de cada ítem."
         actions={
           <Link href={`/e/${board.workspace_id}/flujo`} className="text-sm font-semibold text-accent hover:underline">
             Ver el flujo completo del espacio →
@@ -55,6 +78,7 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
         rules={rules}
         members={members}
         canManage={current.canManage && !board.is_archived}
+        stats={stats}
       />
 
       {incoming.length > 0 && (
@@ -63,7 +87,7 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
           <p className="mb-3 mt-1 text-sm text-muted">Estas reglas de otros tableros traen ítems a este.</p>
           <ul className="space-y-2">
             {incoming.map((a) => {
-              const d = describeAutomation(a, flow.boards);
+              const d = describeAutomation(a, flow.boards, members);
               return (
                 <li key={a.id} className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
                   <span className="font-semibold">{d.source?.name ?? "Otro tablero"}</span>

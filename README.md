@@ -30,6 +30,13 @@ Plataforma para seguir el trabajo de punta a punta: espacios de trabajo por empr
   - **copiar** a otro tablero/carpeta, eligiendo qué campos y columnas viajan y agregando valores fijos;
   - **mover** completo a otro tablero (con comentarios e historial);
   - **actualizar el original o las copias** (cambiarles estado o carpeta), para que la cadena se avise en ambos sentidos.
+- **Reglas automáticas** (Tablero → Reglas), con ejemplos listos para usar:
+  - *Cuándo*: cambio de estado (desde/hacia), de carpeta, de responsable, de prioridad o de una columna; llegada de un ítem; **X días antes, el día o después del vencimiento o de una columna fecha**; ítems que llevan **N días sin avanzar**; reglas **programadas** (diarias, de lunes a viernes, semanales o mensuales, a una hora).
+  - *Solo si…*: condiciones sobre estado, carpeta, prioridad, responsable, terminado, vencimiento (vencido, vence en N días) y columnas (igual, contiene, mayor/menor…).
+  - *Qué hacer*: cambiar estado, carpeta, prioridad, responsable, vencimiento o una columna; comentar; **avisar** (responsable, creador, administradores o una persona); crear un ítem; copiar, mover o actualizar ítems vinculados.
+  - Textos con variables: `{titulo}`, `{tablero}`, `{carpeta}`, `{estado}`, `{vencimiento}`, `{responsable}`, `{hoy}`.
+  - Las reglas por tiempo las ejecuta `pg_cron` cada 15 minutos (hora de Argentina) y no se repiten para la misma fecha. Cada regla muestra cuántas veces se ejecutó y su último error; si una acción falla, el cambio de la persona igual se guarda.
+- **Avisos**: bandeja dentro de Vetta (menú → Avisos). No se envía ningún email.
 - **Trazabilidad**: cada ítem tiene un *Recorrido* con la cadena de tableros (origen y copias), el tiempo que pasó en cada estado y un historial inmutable de cambios, indicando si los hizo una persona o una regla.
 - **Flujo del espacio**: mapa de cómo se conectan los tableros (Espacio → Flujo).
 
@@ -42,7 +49,7 @@ Plataforma para seguir el trabajo de punta a punta: espacios de trabajo por empr
 - Las reglas solo las crea quien administra el tablero de origen **y** el de destino, dentro del mismo espacio. El motor que las ejecuta corre en la base (triggers `SECURITY DEFINER` en el esquema `private`, con `search_path` fijo) porque quien dispara una regla puede no tener acceso al tablero de destino; solo ejecuta reglas guardadas y validadas. Las cadenas circulares se cortan solas.
 - El historial (`task_events`) y los vínculos (`task_links`) son de solo lectura para los usuarios: los escribe únicamente el motor.
 - Las funciones `SECURITY DEFINER` son mínimas, viven en el esquema `private` (no expuesto) salvo `respond_to_invitation`, y tienen `search_path` fijo. Cada una está justificada en la migración.
-- `supabase/tests/rls_test.sql` (50 pruebas de permisos) y `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) se ejecutan dentro de una transacción que se revierte.
+- `supabase/tests/rls_test.sql` (50 pruebas de permisos) `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) y `supabase/tests/rules_test.sql` (29 pruebas del motor de reglas por fechas, condiciones y avisos) se ejecutan dentro de una transacción que se revierte.
 
 ## Puesta en marcha local
 
@@ -61,6 +68,7 @@ Pruebas de permisos (contra una base de prueba, nunca producción):
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/flows_test.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rules_test.sql
 ```
 
 ## Cuentas y contraseñas

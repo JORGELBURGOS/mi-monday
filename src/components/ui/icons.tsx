@@ -108,6 +108,9 @@ export const IconAlert = (p: IconProps) => (
 export const IconFilter = (p: IconProps) => (
   <svg {...base(p)}><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" /></svg>
 );
+export const IconBell = (p: IconProps) => (
+  <svg {...base(p)}><path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9" /><path d="M10 20a2.2 2.2 0 0 0 4 0" /></svg>
+);
 export const IconFlow = (p: IconProps) => (
   <svg {...base(p)}><rect x="3" y="4" width="6" height="5" rx="1.5" /><rect x="15" y="15" width="6" height="5" rx="1.5" /><path d="M9 6.5h4a2 2 0 0 1 2 2V15" /><path d="m12.5 12.5 2.5 2.5 2.5-2.5" /></svg>
 );
