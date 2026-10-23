@@ -8,7 +8,10 @@ import {
   updateAutomationAction,
 } from "@/app/actions/automations";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
+import { FormAlert, Textarea } from "@/components/ui/form";
+import { suggestRuleAction } from "@/app/actions/ai";
+import { draftFromProposal } from "./ai-draft";
 import { EmptyState } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { IconCalendar, IconEdit, IconFlow, IconPlus, IconTrash } from "@/components/ui/icons";
@@ -17,7 +20,7 @@ import { formatDateTime, relativeTime } from "@/lib/format";
 import { readValues } from "@/lib/columns";
 import { COPY_FIELD_LABELS, TIME_TRIGGERS, describeAutomation, readConditions, type CopyField, type TriggerType } from "@/lib/automations";
 import type { Automation, FlowBoard, Member } from "@/lib/data";
-import { RECIPES, RuleEditor, draftFromRule, emptyDraft, type Draft } from "./rule-editor";
+import { RECIPES, RuleEditor, draftFromRule, emptyDraft, suggestSources, type Draft } from "./rule-editor";
 
 export type RunStats = Record<string, { count: number; last: string | null; errors: number; lastError: string | null; lastErrorAt: string | null }>;
 
@@ -28,6 +31,7 @@ export function AutomationManager({
   members,
   canManage,
   stats,
+  aiEnabled = false,
 }: {
   boardId: string;
   boards: FlowBoard[];
@@ -35,10 +39,41 @@ export function AutomationManager({
   members: Member[];
   canManage: boolean;
   stats: RunStats;
+  /** La empresa tiene token de IA cargado. */
+  aiEnabled?: boolean;
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
-  const [editing, setEditing] = useState<{ rule: Automation | null; draft: Draft } | null>(null);
+  const [editing, setEditing] = useState<{ rule: Automation | null; draft: Draft; key?: string } | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiNote, setAiNote] = useState<{ tone: "error" | "question"; text: string } | null>(null);
+  const [aiBusy, startAi] = useTransition();
+
+  const askAi = () =>
+    startAi(async () => {
+      setAiNote(null);
+      const res = await suggestRuleAction(boardId, aiPrompt);
+      if (!res.ok) {
+        setAiNote({ tone: "error", text: res.error });
+        return;
+      }
+      if (!res.data.ok) {
+        setAiNote({ tone: "question", text: res.data.question });
+        return;
+      }
+      const draft = draftFromProposal(res.data.rule, current, boards, members, emptyDraft(current, targets), suggestSources);
+      setAiOpen(false);
+      setAiPrompt("");
+      setEditing({ rule: null, draft, key: `ai-${Date.now()}` });
+      toast.success(res.data.explanation ? `Propuesta de la IA: ${res.data.explanation} Revisala y guardala.` : "La IA armó la regla. Revisala y guardala.");
+    });
+
+  const aiButton = aiEnabled && canManage && (
+    <Button onClick={() => { setAiNote(null); setAiOpen(true); }}>
+      ✨ Crear con IA
+    </Button>
+  );
   const [deleting, setDeleting] = useState<Automation | null>(null);
   const current = boards.find((b) => b.id === boardId)!;
   const targets = boards.filter((b) => b.canManage && !b.is_archived);
@@ -59,7 +94,8 @@ export function AutomationManager({
   return (
     <div className="space-y-4">
       {canManage && rules.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {aiButton}
           <Button variant="primary" onClick={() => openNew()}>
             <IconPlus size={16} /> Nueva regla
           </Button>
@@ -74,9 +110,12 @@ export function AutomationManager({
           action={
             canManage ? (
               <div className="flex flex-col items-center gap-3">
-                <Button variant="primary" onClick={() => openNew()}>
-                  <IconPlus size={16} /> Crear una regla
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button variant="primary" onClick={() => openNew()}>
+                    <IconPlus size={16} /> Crear una regla
+                  </Button>
+                  {aiButton}
+                </div>
                 <div className="flex max-w-xl flex-wrap justify-center gap-1.5">
                   {RECIPES.slice(0, 6).map((r) => (
                     <button
@@ -183,7 +222,7 @@ export function AutomationManager({
 
       {editing && (
         <RuleEditor
-          key={editing.rule?.id ?? "new"}
+          key={editing.rule?.id ?? editing.key ?? "new"}
           source={current}
           targets={targets}
           members={members}
@@ -198,6 +237,43 @@ export function AutomationManager({
             return null;
           }}
         />
+      )}
+
+      {aiOpen && (
+        <Dialog open onClose={() => setAiOpen(false)} title="Crear una regla con IA" description="Contá con tus palabras qué tiene que pasar. La IA arma la regla y vos la revisás antes de guardarla.">
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (aiPrompt.trim().length >= 5) askAi();
+            }}
+          >
+            {aiNote && (aiNote.tone === "error" ? <FormAlert>{aiNote.text}</FormAlert> : (
+              <p role="status" className="rounded-xl border border-accent/30 bg-accent-soft px-3 py-2 text-sm">
+                <strong>La IA pregunta:</strong> {aiNote.text}
+              </p>
+            ))}
+            <label htmlFor="ai-prompt" className="sr-only">Qué tiene que hacer la regla</label>
+            <Textarea
+              id="ai-prompt"
+              data-autofocus
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              maxLength={1500}
+              rows={5}
+              placeholder="Ej.: cuando una tarea pase a Listo y la prioridad sea Alta, avisale al responsable y dejá un comentario con la fecha."
+            />
+            <p className="text-xs text-muted">La IA solo ve la estructura del tablero (columnas, estados, carpetas y nombres de las personas), no el contenido de los elementos.</p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setAiOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="primary" disabled={aiBusy || aiPrompt.trim().length < 5}>
+                {aiBusy ? "Pensando…" : aiNote?.tone === "question" ? "Volver a pedir" : "Armar la regla"}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
       )}
 
       <ConfirmDialog

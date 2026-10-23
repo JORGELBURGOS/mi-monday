@@ -904,6 +904,72 @@ export type Database = {
           },
         ]
       }
+      workspace_ai_settings: {
+        Row: {
+          daily_limit: number
+          key_hint: string | null
+          model: string
+          provider: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          daily_limit?: number
+          key_hint?: string | null
+          model?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          daily_limit?: number
+          key_hint?: string | null
+          model?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      ai_requests: {
+        Row: {
+          board_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          ok: boolean
+          prompt: string
+          result: Json | null
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          board_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          ok?: boolean
+          prompt: string
+          result?: Json | null
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          board_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          ok?: boolean
+          prompt?: string
+          result?: Json | null
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       workspace_members: {
         Row: {
           created_at: string
@@ -1015,6 +1081,11 @@ export type Database = {
     }
     Functions: {
       admin_issue_provision_token: { Args: never; Returns: string }
+      clear_workspace_ai_key: { Args: { p_workspace: string }; Returns: undefined }
+      set_workspace_ai_key: {
+        Args: { p_daily_limit?: number; p_key: string; p_workspace: string }
+        Returns: undefined
+      }
       respond_to_invitation: {
         Args: { p_accept: boolean; p_invitation_id: string }
         Returns: string
