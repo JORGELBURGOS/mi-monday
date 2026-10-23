@@ -3,12 +3,22 @@ import { createClient } from "@/lib/supabase/server";
 import { getSupabaseEnv } from "@/lib/env";
 
 /**
- * Llama a la función de administración de cuentas (supabase/functions/vetta-admin)
+ * Llama a la función de administración de cuentas (supabase/functions/vetta-gestion)
  * desde el servidor, con el token de la sesión actual. La función valida la
  * identidad y los permisos; la clave secreta de Supabase nunca pasa por la app.
  */
 export async function callAccountAdmin<T>(
-  action: "create_user" | "reset_password" | "complete_password_change" | "change_password",
+  action:
+    | "create_user"
+    | "update_user"
+    | "set_user_active"
+    | "reset_password"
+    | "complete_password_change"
+    | "change_password"
+    | "create_company"
+    | "list_companies"
+    | "update_company"
+    | "join_company",
   payload: Record<string, unknown>,
 ): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   const supabase = await createClient();
@@ -18,7 +28,7 @@ export async function callAccountAdmin<T>(
 
   const { url, key } = getSupabaseEnv();
   try {
-    const res = await fetch(`${url}/functions/v1/vetta-admin`, {
+    const res = await fetch(`${url}/functions/v1/vetta-gestion`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

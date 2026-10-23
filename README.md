@@ -9,7 +9,7 @@ Plataforma para seguir el trabajo de punta a punta: espacios de trabajo por empr
 
 - **Next.js 16** (App Router, Server Actions, `proxy.ts`) + **React 19** + **TypeScript**
 - **Tailwind CSS 4** con tokens de diseño propios (modo claro y oscuro según el sistema)
-- **Supabase**: Postgres, Auth (email y contraseña, sin envío de correos), Row Level Security y una Edge Function (`vetta-admin`) para la gestión de cuentas
+- **Supabase**: Postgres, Auth (email y contraseña, sin envío de correos), Row Level Security y una Edge Function (`vetta-gestion`) para la gestión de cuentas
 - **zod** para validar datos en el servidor
 
 ## Funcionalidades
@@ -43,7 +43,7 @@ Plataforma para seguir el trabajo de punta a punta: espacios de trabajo por empr
 ## Seguridad
 
 - Todas las tablas tienen **RLS**; cada lectura y escritura valida la membresía y el rol en la base de datos.
-- La app (navegador y servidor Next.js) usa **solo la clave pública** de Supabase. Las operaciones privilegiadas (crear cuentas, restablecer contraseñas) corren en la Edge Function `vetta-admin`, que usa la clave secreta que Supabase le inyecta y verifica en cada llamada que quien la invoca sea administrador.
+- La app (navegador y servidor Next.js) usa **solo la clave pública** de Supabase. Las operaciones privilegiadas (crear cuentas, restablecer contraseñas) corren en la Edge Function `vetta-gestion`, que usa la clave secreta que Supabase le inyecta y verifica en cada llamada que quien la invoca sea administrador.
 - El registro público está bloqueado en la base: un trigger sobre `auth.users` exige un token de alta de un solo uso que solo emite la Edge Function.
 - Mientras una cuenta tenga un cambio de contraseña pendiente, RLS le bloquea el acceso a todos los datos.
 - Las reglas solo las crea quien administra el tablero de origen **y** el de destino, dentro del mismo espacio. El motor que las ejecuta corre en la base (triggers `SECURITY DEFINER` en el esquema `private`, con `search_path` fijo) porque quien dispara una regla puede no tener acceso al tablero de destino; solo ejecuta reglas guardadas y validadas. Las cadenas circulares se cortan solas.

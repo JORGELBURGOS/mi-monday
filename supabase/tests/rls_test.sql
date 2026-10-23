@@ -62,6 +62,8 @@ begin
   select count(*) into n from public.profiles where id in (a, b, c);
   perform pg_temp.check(n = 3, 'se crea un perfil por usuario');
 
+  -- Solo el superadministrador da de alta empresas.
+  update public.profiles set is_platform_admin = true where id = a;
   -- ---------------------------------------------------------------- A crea todo
   perform pg_temp.act_as(a, 'rls-a@example.test');
   insert into public.workspaces (name) values ('Espacio de prueba') returning id into ws;

@@ -303,6 +303,56 @@ export type Database = {
           },
         ]
       }
+      board_members: {
+        Row: {
+          board_id: string
+          created_at: string
+          granted_by: string | null
+          user_id: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          granted_by?: string | null
+          user_id: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          granted_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_members_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "board_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_members_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_members_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_statuses: {
         Row: {
           board_id: string
@@ -466,6 +516,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          deactivated_at: string | null
           email: string | null
           full_name: string | null
           id: string
@@ -476,6 +527,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
           email?: string | null
           full_name?: string | null
           id: string
@@ -486,6 +538,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
           email?: string | null
           full_name?: string | null
           id?: string

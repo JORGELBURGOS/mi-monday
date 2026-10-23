@@ -46,6 +46,8 @@ begin
          ('00000000-0000-0000-0000-000000000000', x, 'authenticated', 'authenticated', 'rules-x@example.test', now(),
           jsonb_build_object('full_name', 'Xime', 'vetta_provision_token', public.admin_issue_provision_token()), '{}', now(), now());
 
+  -- Solo el superadministrador da de alta empresas.
+  update public.profiles set is_platform_admin = true where id = a;
   perform pg_temp.act_as(a);
   insert into public.workspaces (name) values ('Empresa reglas') returning id into ws;
   insert into public.boards (workspace_id, name) values (ws, 'Pedidos') returning id into bd;

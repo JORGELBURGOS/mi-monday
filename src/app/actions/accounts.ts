@@ -18,8 +18,9 @@ export type CreatePersonState =
 const createPersonSchema = z.object({
   fullName: z.string().trim().min(1, { message: "Ingresá el nombre." }).max(120, { message: "Máximo 120 caracteres." }),
   email: emailSchema,
-  role: z.enum(["member", "admin"], { message: "Rol inválido." }),
+  role: z.enum(["member", "admin", "owner"], { message: "Rol inválido." }),
   password: z.union([z.literal(""), passwordSchema]),
+  boards: z.array(z.uuid()).max(500),
 });
 
 export async function createPersonAction(
@@ -28,12 +29,13 @@ export async function createPersonAction(
   formData: FormData,
 ): Promise<CreatePersonState> {
   if (!(await getCurrentUser())) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(workspaceId).success) return fail("Espacio inválido.");
+  if (!uuidSchema.safeParse(workspaceId).success) return fail("Empresa inválida.");
   const parsed = createPersonSchema.safeParse({
     fullName: formData.get("fullName"),
     email: formData.get("email"),
     role: formData.get("role"),
     password: formData.get("password") ?? "",
+    boards: formData.getAll("boards").map(String),
   });
   if (!parsed.success) return fromZod(parsed.error);
 
@@ -43,6 +45,7 @@ export async function createPersonAction(
     full_name: parsed.data.fullName,
     role: parsed.data.role,
     password: parsed.data.password || undefined,
+    board_ids: parsed.data.boards,
   });
   if (!res.ok) return fail(res.error);
 
@@ -67,6 +70,37 @@ export async function resetPasswordAction(
   if (!res.ok) return fail(res.error);
   revalidatePath(`/e/${workspaceId}/miembros`);
   return ok({ email: res.data.email, tempPassword: res.data.temp_password });
+}
+
+/* ------------------------------------------------- edición completa de personas */
+
+const updatePersonSchema = z.object({
+  fullName: z.string().trim().min(1, { message: "Ingresá el nombre." }).max(120, { message: "Máximo 120 caracteres." }),
+  email: emailSchema,
+});
+
+export async function updatePersonAction(
+  workspaceId: string,
+  userId: string,
+  input: { fullName: string; email: string },
+): Promise<ActionResult> {
+  if (!(await getCurrentUser())) return fail(SESSION_EXPIRED);
+  if (!uuidSchema.safeParse(userId).success || !uuidSchema.safeParse(workspaceId).success) return fail("Datos inválidos.");
+  const parsed = updatePersonSchema.safeParse(input);
+  if (!parsed.success) return fromZod(parsed.error);
+  const res = await callAccountAdmin("update_user", { user_id: userId, full_name: parsed.data.fullName, email: parsed.data.email });
+  if (!res.ok) return fail(res.error);
+  revalidatePath(`/e/${workspaceId}`, "layout");
+  return ok(undefined, "Datos actualizados.");
+}
+
+export async function setPersonActiveAction(workspaceId: string, userId: string, active: boolean): Promise<ActionResult> {
+  if (!(await getCurrentUser())) return fail(SESSION_EXPIRED);
+  if (!uuidSchema.safeParse(userId).success || !uuidSchema.safeParse(workspaceId).success) return fail("Datos inválidos.");
+  const res = await callAccountAdmin("set_user_active", { user_id: userId, active: Boolean(active) });
+  if (!res.ok) return fail(res.error);
+  revalidatePath(`/e/${workspaceId}`, "layout");
+  return ok(undefined, active ? "Cuenta reactivada." : "Cuenta desactivada: ya no puede entrar.");
 }
 
 /* ------------------------------------------- cambio obligatorio (primer ingreso) */
