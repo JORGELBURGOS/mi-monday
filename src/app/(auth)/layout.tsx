@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { siteConfig } from "@/config/site";
-import { LogoMark } from "@/components/ui/icons";
+import { LogoMark, Wordmark } from "@/components/ui/icons";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <aside className="relative hidden overflow-hidden bg-[#1d1b18] p-12 text-[#f3efe8] lg:flex lg:flex-col lg:justify-between">
         <Link href="/" className="flex items-center gap-2.5 text-lg font-extrabold">
           <LogoMark size={32} />
-          {siteConfig.name}
+          <Wordmark name={siteConfig.name} />
         </Link>
         <div className="max-w-md">
           <p className="text-3xl font-extrabold leading-tight tracking-tight text-balance">
@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="w-full max-w-sm">
           <Link href="/" className="mb-8 flex items-center gap-2.5 text-lg font-extrabold lg:hidden">
             <LogoMark />
-            {siteConfig.name}
+            <Wordmark name={siteConfig.name} />
           </Link>
           {children}
         </div>

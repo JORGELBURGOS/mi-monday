@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { siteConfig } from "@/config/site";
-import { LogoMark, IconBoard, IconUsers, IconCalendar } from "@/components/ui/icons";
+import { LogoMark, Wordmark, IconBoard, IconUsers, IconCalendar } from "@/components/ui/icons";
 import { buttonClasses } from "@/components/ui/button-classes";
 
 export default function LandingPage() {
@@ -27,7 +27,7 @@ export default function LandingPage() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <span className="flex items-center gap-2.5 whitespace-nowrap text-lg font-extrabold">
           <LogoMark />
-          {siteConfig.name}
+          <Wordmark name={siteConfig.name} />
         </span>
         <nav className="flex items-center gap-2" aria-label="Cuenta">
           <Link href="/login" className={buttonClasses("ghost", "md", "hidden sm:inline-flex")}>

@@ -1,9 +1,9 @@
-# Mi Monday
+# Vetta
 
 Plataforma de gestión de proyectos y tareas para equipos: espacios de trabajo con roles, tableros con grupos, tareas con estado, prioridad, responsable y vencimiento, vista de tabla y de calendario, y comentarios.
 
 > El nombre se cambia en un solo lugar: `src/config/site.ts` (o con la variable `NEXT_PUBLIC_APP_NAME`).
-> “Monday” es una marca de terceros: conviene elegir un nombre propio antes de publicarla para el público general.
+> Marca: la V inicial y la A final (Λ) en espejo, el principio y el final de cada recorrido. Ícono en `src/app/icon.svg` y `LogoMark` (`src/components/ui/icons.tsx`).
 
 ## Stack
 
@@ -54,8 +54,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql
 
 En **Authentication → URL Configuration**:
 
-- **Site URL**: la URL de producción (por ejemplo `https://mi-monday.vercel.app`).
-- **Redirect URLs**: agregá `https://mi-monday.vercel.app/**`, `https://*-jorges-projects-464fd33b.vercel.app/**` (previews) y `http://localhost:3000/**`.
+- **Site URL**: la URL de producción (por ejemplo `https://vetta.vercel.app`).
+- **Redirect URLs**: agregá `https://vetta.vercel.app/**`, `https://mi-monday.vercel.app/**`, `https://*-jorges-projects-464fd33b.vercel.app/**` (previews) y `http://localhost:3000/**`.
 
 Emails: el servidor de correo incluido en Supabase tiene un límite bajo de envíos y está pensado para pruebas. Para usuarios reales configurá un SMTP propio en **Authentication → Emails → SMTP Settings**.
 

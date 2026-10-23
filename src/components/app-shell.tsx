@@ -19,6 +19,7 @@ import {
   IconUsers,
   IconX,
   LogoMark,
+  Wordmark,
 } from "@/components/ui/icons";
 import { Avatar } from "@/components/ui/misc";
 import type { WorkspaceRole } from "@/lib/constants";
@@ -72,7 +73,7 @@ export function AppShell({
         </button>
         <Link href="/inicio" className="flex items-center gap-2 font-extrabold">
           <LogoMark size={24} />
-          {siteConfig.name}
+          <Wordmark name={siteConfig.name} />
         </Link>
       </div>
 
@@ -128,7 +129,7 @@ function SidebarContent({
       <div className="px-4 pb-2 pt-4">
         <Link href="/inicio" className="flex items-center gap-2.5 rounded-lg px-1 py-1 text-[17px] font-extrabold">
           <LogoMark />
-          <span className="truncate">{siteConfig.name}</span>
+          <Wordmark name={siteConfig.name} className="truncate" />
         </Link>
       </div>
 

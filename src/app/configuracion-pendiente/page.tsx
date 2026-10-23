@@ -1,5 +1,5 @@
 import { siteConfig } from "@/config/site";
-import { LogoMark } from "@/components/ui/icons";
+import { LogoMark, Wordmark } from "@/components/ui/icons";
 
 export const metadata = { title: "Configuración pendiente" };
 
@@ -7,7 +7,7 @@ export default function SetupPendingPage() {
   return (
     <main id="contenido" className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12">
       <div className="mb-6 flex items-center gap-2.5 text-lg font-extrabold">
-        <LogoMark /> {siteConfig.name}
+        <LogoMark /> <Wordmark name={siteConfig.name} />
       </div>
       <h1 className="text-2xl font-extrabold tracking-tight">Falta conectar la base de datos</h1>
       <p className="mt-3 text-sm leading-relaxed text-muted">

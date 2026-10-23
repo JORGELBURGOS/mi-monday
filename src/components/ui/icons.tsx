@@ -112,14 +112,34 @@ export const IconSort = (p: IconProps) => (
   <svg {...base(p)}><path d="M7 4v16M3.5 16.5 7 20l3.5-3.5M17 20V4M13.5 7.5 17 4l3.5 3.5" /></svg>
 );
 
-/** Marca original: tres barras escalonadas dentro de un recuadro. */
+/**
+ * Marca de Vetta: la V inicial y la A final (Λ) en espejo, unidas por un
+ * recorrido punteado. El principio y el final de cada transacción.
+ */
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden focusable={false}>
-      <rect width="32" height="32" rx="9" fill="var(--accent)" />
-      <rect x="7" y="8" width="13" height="4" rx="2" fill="var(--accent-fg)" />
-      <rect x="7" y="14" width="18" height="4" rx="2" fill="var(--accent-fg)" opacity="0.85" />
-      <rect x="7" y="20" width="9" height="4" rx="2" fill="var(--accent-fg)" opacity="0.7" />
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden focusable={false}>
+      <rect width="64" height="64" rx="16" fill="var(--accent)" />
+      <g fill="none" stroke="var(--accent-fg)" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 17 L21 45 L32 17" strokeWidth="5.5" />
+        <path d="M32 47 L43 19 L54 47" strokeWidth="5.5" opacity="0.6" />
+        <path d="M32 22.5 L32 41.5" strokeWidth="2.5" strokeDasharray="2 4" />
+      </g>
+      <circle cx="32" cy="17" r="4.5" fill="var(--accent-fg)" />
+      <circle cx="32" cy="47" r="4.5" fill="var(--accent-fg)" opacity="0.6" />
     </svg>
+  );
+}
+
+/** Logotipo: el nombre en mayúsculas con la A final como Λ, igual que en el ícono. */
+export function Wordmark({ name, className }: { name: string; className?: string }) {
+  const styled = name.toUpperCase().replace(/A$/, "Λ");
+  return (
+    <span className={className}>
+      <span aria-hidden className="tracking-[0.08em]">
+        {styled}
+      </span>
+      <span className="sr-only">{name}</span>
+    </span>
   );
 }

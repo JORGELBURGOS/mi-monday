@@ -1,5 +1,5 @@
 -- =============================================================================
--- Pruebas de seguridad (RLS) para Mi Monday.
+-- Pruebas de seguridad (RLS) para Vetta.
 -- Se ejecutan dentro de una transacción que se revierte: no dejan datos.
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql
 -- Cada verificación que falla corta la ejecución con un error descriptivo.
