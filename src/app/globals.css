@@ -270,3 +270,9 @@ dialog::backdrop {
     display: inline-flex;
   }
 }
+
+/* Tamaño de la interfaz elegido por la persona: solo para el contenido de Vetta. */
+#app-zoom {
+  zoom: var(--ui-zoom, 1);
+  min-height: calc(100dvh / var(--ui-zoom, 1));
+}

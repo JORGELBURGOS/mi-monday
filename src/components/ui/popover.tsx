@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
-import { rectCss, viewportCss } from "@/lib/ui-prefs";
+import { floatingContainer, rectCss, viewportCss } from "@/lib/ui-prefs";
 
 /**
  * Botón que abre un panel flotante. El panel se monta en <body> con posición
@@ -114,7 +114,7 @@ export function PopoverButton({
         onClick={() => {
           if (open) return close();
           // Dentro de un <dialog> modal, el panel tiene que vivir en el diálogo para no quedar inerte.
-          setContainer(buttonRef.current?.closest("dialog") ?? document.body);
+          setContainer(floatingContainer(buttonRef.current));
           setOpen(true);
         }}
         className={className}

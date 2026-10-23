@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
-import { rectCss, viewportCss } from "@/lib/ui-prefs";
+import { floatingContainer, rectCss, viewportCss } from "@/lib/ui-prefs";
 
 export type MenuItem =
   | {
@@ -67,7 +67,7 @@ export function Menu({
   }, [align]);
 
   const openMenu = () => {
-    setContainer(buttonRef.current?.closest("dialog") ?? document.body);
+    setContainer(floatingContainer(buttonRef.current));
     place();
     setOpen(true);
   };

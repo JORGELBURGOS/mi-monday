@@ -32,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="vetta-prefs" strategy="beforeInteractive">
           {PREFS_SCRIPT}
         </Script>
-        <ToastProvider>{children}</ToastProvider>
+        <div id="app-zoom">
+          <ToastProvider>{children}</ToastProvider>
+        </div>
       </body>
     </html>
   );
