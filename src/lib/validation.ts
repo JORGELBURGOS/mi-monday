@@ -48,7 +48,7 @@ export const colorSchema = z.enum(COLOR_NAMES, { message: "Color inválido." });
 export const groupNameSchema = z
   .string()
   .trim()
-  .min(1, { message: "El nombre del grupo es obligatorio." })
+  .min(1, { message: "El nombre de la carpeta es obligatorio." })
   .max(80, { message: "Máximo 80 caracteres." });
 
 export const statusSchema = z.object({

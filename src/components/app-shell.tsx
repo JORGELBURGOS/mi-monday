@@ -10,6 +10,7 @@ import {
   IconBoard,
   IconChevronDown,
   IconChevronRight,
+  IconFlow,
   IconHome,
   IconLock,
   IconLogout,
@@ -290,6 +291,16 @@ function WorkspaceNode({
               className="flex-1 text-muted"
             >
               Nuevo tablero
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              href={`/e/${workspace.id}/flujo`}
+              active={pathname === `/e/${workspace.id}/flujo`}
+              icon={<IconFlow size={15} />}
+              className="text-muted"
+            >
+              Flujo entre tableros
             </NavLink>
           </li>
           <li>

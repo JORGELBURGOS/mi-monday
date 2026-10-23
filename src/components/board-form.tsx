@@ -99,7 +99,7 @@ export function NewBoardButton({ workspaceId }: { workspaceId: string }) {
       <Button variant="primary" onClick={() => setManualOpen(true)}>
         <IconPlus size={16} /> Nuevo tablero
       </Button>
-      <Dialog open={open} onClose={close} title="Nuevo tablero" description="Arranca con los estados básicos y un grupo; después lo adaptás.">
+      <Dialog open={open} onClose={close} title="Nuevo tablero" description="Arranca con los estados básicos y una carpeta; después lo adaptás.">
         <BoardForm workspaceId={workspaceId} onCancel={close} />
       </Dialog>
     </>

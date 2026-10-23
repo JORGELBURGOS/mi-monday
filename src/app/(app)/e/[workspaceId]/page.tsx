@@ -8,7 +8,7 @@ import { BoardCard } from "@/components/board-card";
 import { NewBoardButton } from "@/components/board-form";
 import { EmptyState, PageHeader, SectionTitle } from "@/components/ui/misc";
 import { buttonClasses } from "@/components/ui/button-classes";
-import { IconBoard, IconUsers } from "@/components/ui/icons";
+import { IconBoard, IconFlow, IconUsers } from "@/components/ui/icons";
 import { uuidSchema } from "@/lib/validation";
 import { ROLE_LABELS } from "@/lib/constants";
 
@@ -40,6 +40,9 @@ export default async function WorkspacePage({ params }: Props) {
         description={workspace.description}
         actions={
           <>
+            <Link href={`/e/${workspaceId}/flujo`} className={buttonClasses("secondary")}>
+              <IconFlow size={16} /> Flujo
+            </Link>
             <Link href={`/e/${workspaceId}/miembros`} className={buttonClasses("secondary")}>
               <IconUsers size={16} /> Miembros
             </Link>
@@ -58,7 +61,7 @@ export default async function WorkspacePage({ params }: Props) {
           <EmptyState
             icon={<IconBoard />}
             title="Este espacio todavía no tiene tableros"
-            description="Usá “Nuevo tablero” para crear el primero. Arranca con estados y un grupo listos para cargar tareas."
+            description="Usá “Nuevo tablero” para crear el primero. Arranca con estados y una carpeta lista para cargar tareas."
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

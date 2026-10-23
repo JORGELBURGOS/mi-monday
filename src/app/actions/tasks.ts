@@ -109,6 +109,7 @@ export async function duplicateTaskAction(taskId: string): Promise<ActionResult<
       priority: src.priority,
       assignee_id: src.assignee_id,
       due_date: src.due_date,
+      custom_values: src.custom_values,
       position,
     })
     .select("id")

@@ -133,9 +133,15 @@ begin
   update public.workspace_invitations set role = 'admin' where id = inv; get diagnostics n = row_count;
   perform pg_temp.check(n = 0, 'B no puede cambiar el rol de su invitación');
 
-  perform public.respond_to_invitation(inv, true);
+  blocked := false;
+  begin perform public.respond_to_invitation(inv, true); exception when others then blocked := true; end;
+  perform pg_temp.check(blocked, 'las invitaciones por email ya no se pueden aceptar desde la API');
+  -- Las altas las hace un administrador (función vetta-admin con privilegios de servicio).
+  execute 'reset role';
+  insert into public.workspace_members (workspace_id, user_id, role) values (ws, b, 'member');
+  perform pg_temp.act_as(b, 'rls-b@example.test');
   perform pg_temp.check(exists (select 1 from public.workspace_members where workspace_id = ws and user_id = b and role = 'member'),
-    'B es miembro tras aceptar');
+    'B es miembro tras el alta');
   perform pg_temp.check(exists (select 1 from public.tasks where id = tk), 'B ve tareas del tablero compartido');
   perform pg_temp.check(not exists (select 1 from public.boards where id = pbd), 'B no ve el tablero privado de A');
   perform pg_temp.check(exists (select 1 from public.profiles where id = a), 'B ve el perfil de A (comparten espacio)');

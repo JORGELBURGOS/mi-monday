@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { buttonClasses } from "@/components/ui/button-classes";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { IconArchive, IconSettings, IconTrash } from "@/components/ui/icons";
+import { IconArchive, IconFlow, IconSettings, IconTrash } from "@/components/ui/icons";
 
 export function BoardHeaderActions({
   board,
@@ -35,9 +35,14 @@ export function BoardHeaderActions({
   return (
     <div className="flex shrink-0 flex-wrap gap-2">
       {showSettingsLink && !board.isArchived && (
-        <Link href={`/t/${board.id}/ajustes`} className={buttonClasses("secondary", "sm")}>
-          <IconSettings size={15} /> Ajustes
-        </Link>
+        <>
+          <Link href={`/t/${board.id}/reglas`} className={buttonClasses("secondary", "sm")}>
+            <IconFlow size={15} /> Reglas
+          </Link>
+          <Link href={`/t/${board.id}/ajustes`} className={buttonClasses("secondary", "sm")}>
+            <IconSettings size={15} /> Ajustes
+          </Link>
+        </>
       )}
       {board.isArchived ? (
         <>
@@ -70,7 +75,7 @@ export function BoardHeaderActions({
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         title="Eliminar tablero definitivamente"
-        description="Se borran todos sus grupos, tareas y comentarios. Esta acción no se puede deshacer."
+        description="Se borran todas sus carpetas, tareas y comentarios. Esta acción no se puede deshacer."
         requireText={board.name}
         confirmLabel="Eliminar para siempre"
         onConfirm={async () => {

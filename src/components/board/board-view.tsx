@@ -10,6 +10,8 @@ import {
   updateTaskAction,
 } from "@/app/actions/tasks";
 import { createGroupAction, deleteGroupAction, updateGroupAction } from "@/app/actions/boards";
+import { setCustomValuesAction } from "@/app/actions/columns";
+import { readValues, type BoardColumn } from "@/lib/columns";
 import type { ActionResult } from "@/lib/action-result";
 import { cn } from "@/lib/cn";
 import { PRIORITIES } from "@/lib/constants";
@@ -46,8 +48,10 @@ export function BoardView({
   groups,
   tasks,
   members,
+  columns,
   serverToday,
   readOnly,
+  initialTaskId,
 }: {
   boardId: string;
   view: "tabla" | "calendario";
@@ -55,8 +59,11 @@ export function BoardView({
   groups: Group[];
   tasks: Task[];
   members: Member[];
+  columns: BoardColumn[];
   serverToday: string;
   readOnly: boolean;
+  /** Ítem a abrir al cargar (por ejemplo, desde el recorrido de otro tablero). */
+  initialTaskId?: string;
 }) {
   const toast = useToast();
   const today = useSyncExternalStore(noopSubscribe, todayIsoLocal, () => serverToday);
@@ -67,7 +74,9 @@ export function BoardView({
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("manual");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(
+    initialTaskId && tasks.some((t) => t.id === initialTaskId) ? initialTaskId : null,
+  );
   const [deleting, setDeleting] = useState<Task | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<Group | null>(null);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
@@ -114,6 +123,14 @@ export function BoardView({
 
   const handlers: GroupHandlers = {
     onUpdateTask: updateTask,
+    onSetValue: (task, columnId, value) => {
+      const next = { ...readValues(task.custom_values) };
+      if (value === null) delete next[columnId];
+      else next[columnId] = value;
+      run(() => setCustomValuesAction(task.id, { [columnId]: value }), {
+        task: { type: "update", id: task.id, patch: { custom_values: next } },
+      });
+    },
     onOpenTask: (t) => setOpenTaskId(t.id),
     onDeleteTask: (t) => setDeleting(t),
     onDuplicateTask: (t) => run(() => duplicateTaskAction(t.id), { success: "Tarea duplicada." }),
@@ -133,6 +150,7 @@ export function BoardView({
         priority: "medium",
         assignee_id: null,
         due_date: null,
+        custom_values: {},
         position: Number.MAX_SAFE_INTEGER,
         created_by: null,
         created_at: new Date().toISOString(),
@@ -184,7 +202,7 @@ export function BoardView({
 
           {!readOnly && view === "tabla" && (
             <Button variant="primary" size="sm" className="h-9" onClick={() => setNewGroupOpen(true)}>
-              <IconPlus size={16} /> Grupo
+              <IconPlus size={16} /> Carpeta
             </Button>
           )}
         </div>
@@ -302,6 +320,7 @@ export function BoardView({
                 manual={manual}
                 statuses={statuses}
                 members={members}
+                columns={columns}
                 doneIds={doneIds}
                 today={today}
                 readOnly={readOnly}
@@ -311,7 +330,7 @@ export function BoardView({
             );
           })}
           {optimisticGroups.length === 0 && (
-            <EmptyState title="Este tablero no tiene grupos" description="Creá un grupo para empezar a cargar tareas." />
+            <EmptyState title="Este tablero no tiene carpetas" description="Creá una carpeta para empezar a cargar tareas." />
           )}
           {active && visibleCount === 0 && optimisticTasks.length > 0 && (
             <EmptyState
@@ -330,9 +349,11 @@ export function BoardView({
           statuses={statuses}
           groups={optimisticGroups}
           members={members}
+          columns={columns}
           today={today}
           readOnly={readOnly || openTask.id.startsWith("tmp-")}
           onClose={() => setOpenTaskId(null)}
+          onOpenTask={(id) => setOpenTaskId(id)}
           onSaved={() => toast.success("Cambios guardados.")}
           onDelete={() => {
             setOpenTaskId(null);
@@ -366,16 +387,16 @@ export function BoardView({
       <ConfirmDialog
         open={Boolean(deletingGroup)}
         onClose={() => setDeletingGroup(null)}
-        title="Eliminar grupo"
+        title="Eliminar carpeta"
         description={
           deletingGroup && (
             <>
-              Se elimina el grupo <strong className="text-fg">“{deletingGroup.name}”</strong>
+              Se elimina la carpeta <strong className="text-fg">“{deletingGroup.name}”</strong>
               {(tasksByGroup.get(deletingGroup.id)?.length ?? 0) > 0 && (
                 <>
                   {" "}
                   junto con sus <strong className="text-fg">{tasksByGroup.get(deletingGroup.id)?.length} tareas</strong>. Si
-                  querés conservarlas, movelas a otro grupo antes
+                  querés conservarlas, movelas a otra carpeta antes
                 </>
               )}
               . No se puede deshacer.
@@ -383,11 +404,11 @@ export function BoardView({
           )
         }
         requireText={(tasksByGroup.get(deletingGroup?.id ?? "")?.length ?? 0) > 0 ? deletingGroup?.name : undefined}
-        confirmLabel="Eliminar grupo"
+        confirmLabel="Eliminar carpeta"
         onConfirm={() => {
           const g = deletingGroup;
           setDeletingGroup(null);
-          if (g) run(() => deleteGroupAction(g.id), { group: { type: "remove", id: g.id }, success: "Grupo eliminado." });
+          if (g) run(() => deleteGroupAction(g.id), { group: { type: "remove", id: g.id }, success: "Carpeta eliminada." });
         }}
       />
 
@@ -440,7 +461,7 @@ function NewGroupDialog({
     onClose();
   };
   return (
-    <Dialog open={open} onClose={close} title="Nuevo grupo" size="sm">
+    <Dialog open={open} onClose={close} title="Nueva carpeta" size="sm">
       <form
         className="space-y-4"
         onSubmit={async (e) => {
@@ -454,7 +475,7 @@ function NewGroupDialog({
       >
         <div>
           <label htmlFor="new-group-name" className="mb-1.5 block text-sm font-semibold">
-            Nombre del grupo
+            Nombre de la carpeta
           </label>
           <Input
             id="new-group-name"
@@ -469,7 +490,7 @@ function NewGroupDialog({
         <div className="flex justify-end gap-2">
           <Button onClick={close}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
-            {busy ? "Creando…" : "Crear grupo"}
+            {busy ? "Creando…" : "Crear carpeta"}
           </Button>
         </div>
       </form>

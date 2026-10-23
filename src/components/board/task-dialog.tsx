@@ -17,6 +17,11 @@ import { IconCopy, IconTrash } from "@/components/ui/icons";
 import { PRIORITIES, type Priority } from "@/lib/constants";
 import { displayName, formatDateTime, relativeTime } from "@/lib/format";
 import { taskTitleSchema } from "@/lib/validation";
+import { setCustomValuesAction } from "@/app/actions/columns";
+import { readValues, type BoardColumn, type CellValue } from "@/lib/columns";
+import { cn } from "@/lib/cn";
+import { CustomValueInput } from "./custom-cell";
+import { TaskTrace } from "./task-trace";
 import type { Group, Member, Status, Task } from "./types";
 
 export function TaskDialog({
@@ -24,8 +29,10 @@ export function TaskDialog({
   statuses,
   groups,
   members,
+  columns,
   readOnly,
   onClose,
+  onOpenTask,
   onSaved,
   onDelete,
   onDuplicate,
@@ -35,13 +42,15 @@ export function TaskDialog({
   statuses: Status[];
   groups: Group[];
   members: Member[];
+  columns: BoardColumn[];
   today: string;
   readOnly: boolean;
   onClose: () => void;
+  onOpenTask: (taskId: string) => void;
   onSaved: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
-  /** Posición para ubicar la tarea al final de un grupo. */
+  /** Posición para ubicar la tarea al final de una carpeta. */
   endPosition: (groupId: string) => number;
 }) {
   const uid = useId();
@@ -52,6 +61,9 @@ export function TaskDialog({
   const [assigneeId, setAssigneeId] = useState(task.assignee_id ?? "");
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [groupId, setGroupId] = useState(task.group_id);
+  const initialValues = readValues(task.custom_values);
+  const [values, setValues] = useState<Record<string, CellValue | null>>(initialValues);
+  const [tab, setTab] = useState<"comments" | "trace">("comments");
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
@@ -63,7 +75,12 @@ export function TaskDialog({
     priority !== task.priority ||
     (assigneeId || null) !== task.assignee_id ||
     (dueDate || null) !== task.due_date ||
-    groupId !== task.group_id;
+    groupId !== task.group_id ||
+    changedValues().length > 0;
+
+  function changedValues() {
+    return columns.filter((c) => (values[c.id] ?? null) !== (initialValues[c.id] ?? null)).map((c) => c.id);
+  }
 
   const save = () => {
     const parsedTitle = taskTitleSchema.safeParse(title);
@@ -85,6 +102,14 @@ export function TaskDialog({
       if (!res.ok) {
         setError(res.error);
         return;
+      }
+      const changed = changedValues();
+      if (changed.length > 0) {
+        const saved = await setCustomValuesAction(task.id, Object.fromEntries(changed.map((id) => [id, values[id] ?? null])));
+        if (!saved.ok) {
+          setError(saved.error);
+          return;
+        }
       }
       if (groupId !== task.group_id) {
         // Se agrega al final del grupo destino.
@@ -126,7 +151,41 @@ export function TaskDialog({
               placeholder="Detalles, criterios, enlaces…"
             />
           </Field>
-          <Comments taskId={task.id} disabled={task.id.startsWith("tmp-")} />
+          <div className="border-t border-line pt-4">
+            <div role="tablist" aria-label="Actividad del ítem" className="mb-4 flex gap-1 rounded-lg bg-surface-2 p-0.5">
+              {(
+                [
+                  ["comments", "Comentarios"],
+                  ["trace", "Recorrido"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  id={`${uid}-tab-${key}`}
+                  aria-selected={tab === key}
+                  aria-controls={`${uid}-panel-${key}`}
+                  onClick={() => setTab(key)}
+                  className={cn(
+                    "h-8 flex-1 rounded-md text-[13px] font-semibold",
+                    tab === key ? "bg-surface text-fg shadow-card" : "text-muted hover:text-fg",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div role="tabpanel" id={`${uid}-panel-${tab}`} aria-labelledby={`${uid}-tab-${tab}`}>
+              {tab === "comments" ? (
+                <Comments taskId={task.id} disabled={task.id.startsWith("tmp-")} />
+              ) : task.id.startsWith("tmp-") ? (
+                <p className="text-sm text-muted">Guardando el ítem…</p>
+              ) : (
+                <TaskTrace taskId={task.id} boardId={task.board_id} onOpenTask={onOpenTask} />
+              )}
+            </div>
+          </div>
         </div>
 
         <aside className="space-y-3 md:border-l md:border-line md:pl-6">
@@ -162,7 +221,7 @@ export function TaskDialog({
           <Field id={`${uid}-due`} label="Vencimiento">
             <Input id={`${uid}-due`} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly} />
           </Field>
-          <Field id={`${uid}-group`} label="Grupo">
+          <Field id={`${uid}-group`} label="Carpeta">
             <Select id={`${uid}-group`} value={groupId} onChange={(e) => setGroupId(e.target.value)} disabled={readOnly}>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -171,6 +230,20 @@ export function TaskDialog({
               ))}
             </Select>
           </Field>
+          {columns.map((c) => (
+            <Field key={c.id} id={`${uid}-col-${c.id}`} label={c.name}>
+              <CustomValueInput
+                id={`${uid}-col-${c.id}`}
+                variant="field"
+                column={c}
+                value={values[c.id] ?? undefined}
+                members={members}
+                disabled={readOnly}
+                label={c.name}
+                onChange={(v) => setValues((prev) => ({ ...prev, [c.id]: v }))}
+              />
+            </Field>
+          ))}
           <dl className="space-y-1 border-t border-line pt-3 text-xs text-muted">
             <div>
               <dt className="inline">Creada: </dt>
@@ -238,8 +311,8 @@ function Comments({ taskId, disabled }: { taskId: string; disabled: boolean }) {
   }, [taskId, disabled]);
 
   return (
-    <section aria-labelledby={`${uid}-ct`} className="border-t border-line pt-4">
-      <h3 id={`${uid}-ct`} className="mb-3 text-sm font-bold">
+    <section aria-labelledby={`${uid}-ct`}>
+      <h3 id={`${uid}-ct`} className="sr-only">
         Comentarios {comments && comments.length > 0 && <span className="font-normal text-muted">({comments.length})</span>}
       </h3>
       {loadError && (

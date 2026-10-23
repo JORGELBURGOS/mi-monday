@@ -73,6 +73,8 @@ export default async function BoardPage({ params, searchParams }: Props) {
         groups={data.groups}
         tasks={data.tasks}
         members={data.members}
+        columns={data.columns}
+        initialTaskId={typeof sp.item === "string" ? sp.item : undefined}
         serverToday={new Date().toISOString().slice(0, 10)}
         readOnly={board.is_archived}
       />

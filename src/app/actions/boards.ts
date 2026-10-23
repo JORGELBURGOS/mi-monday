@@ -130,7 +130,7 @@ export async function createGroupAction(boardId: string, name: string): Promise<
     })
     .select("id")
     .single();
-  if (error || !data) return fromDb(error, "No se pudo crear el grupo.");
+  if (error || !data) return fromDb(error, "No se pudo crear la carpeta.");
   refresh();
   return ok({ id: data.id });
 }
@@ -143,13 +143,13 @@ const groupPatchSchema = z
 export async function updateGroupAction(groupId: string, patch: { name?: string; color?: string; position?: number }): Promise<ActionResult> {
   const ctx = await actionContext();
   if (!ctx) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(groupId).success) return fail("Grupo inválido.");
+  if (!uuidSchema.safeParse(groupId).success) return fail("Carpeta inválida.");
   const parsed = groupPatchSchema.safeParse(patch);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Datos inválidos.");
 
   const { data, error } = await ctx.supabase.from("board_groups").update(parsed.data).eq("id", groupId).select("id");
   if (error) return fromDb(error);
-  if (!data?.length) return fail("El grupo ya no existe o no tenés acceso.");
+  if (!data?.length) return fail("La carpeta ya no existe o no tenés acceso.");
   refresh();
   return ok(undefined);
 }
@@ -157,21 +157,21 @@ export async function updateGroupAction(groupId: string, patch: { name?: string;
 export async function deleteGroupAction(groupId: string): Promise<ActionResult> {
   const ctx = await actionContext();
   if (!ctx) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(groupId).success) return fail("Grupo inválido.");
+  if (!uuidSchema.safeParse(groupId).success) return fail("Carpeta inválida.");
 
   const { data: group } = await ctx.supabase.from("board_groups").select("board_id").eq("id", groupId).maybeSingle();
-  if (!group) return fail("El grupo ya no existe.");
+  if (!group) return fail("La carpeta ya no existe.");
   const { count } = await ctx.supabase
     .from("board_groups")
     .select("id", { count: "exact", head: true })
     .eq("board_id", group.board_id);
-  if ((count ?? 0) <= 1) return fail("Un tablero necesita al menos un grupo.");
+  if ((count ?? 0) <= 1) return fail("Un tablero necesita al menos una carpeta.");
 
   const { data, error } = await ctx.supabase.from("board_groups").delete().eq("id", groupId).select("id");
-  if (error) return fromDb(error, "No se pudo eliminar el grupo.");
-  if (!data?.length) return fail("No tenés permiso para eliminar este grupo.");
+  if (error) return fromDb(error, "No se pudo eliminar la carpeta.");
+  if (!data?.length) return fail("No tenés permiso para eliminar esta carpeta.");
   refresh();
-  return ok(undefined, "Grupo eliminado.");
+  return ok(undefined, "Carpeta eliminada.");
 }
 
 /* ----------------------------------------------------------------- estados */

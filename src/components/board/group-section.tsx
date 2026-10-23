@@ -18,10 +18,13 @@ import {
   IconTrash,
 } from "@/components/ui/icons";
 import { AssigneeSelect, DueBadge, DueDateInput, PrioritySelect, StatusSelect } from "./task-fields";
+import { CustomValueInput } from "./custom-cell";
+import { readValues, type BoardColumn, type CellValue } from "@/lib/columns";
 import type { Group, Member, Status, Task } from "./types";
 
 export type GroupHandlers = {
   onUpdateTask: (t: Task, patch: Partial<Task>) => void;
+  onSetValue: (t: Task, columnId: string, value: CellValue | null) => void;
   onOpenTask: (t: Task) => void;
   onDeleteTask: (t: Task) => void;
   onDuplicateTask: (t: Task) => void;
@@ -45,6 +48,7 @@ type Props = {
   manual: boolean;
   statuses: Status[];
   members: Member[];
+  columns: BoardColumn[];
   doneIds: Set<string>;
   today: string;
   readOnly: boolean;
@@ -66,8 +70,8 @@ export function GroupSection(props: Props) {
 
   const groupMenu: MenuItem[] = [
     { label: "Renombrar", icon: <IconEdit size={16} />, onSelect: () => setRenaming(true) },
-    { label: "Subir grupo", icon: <IconArrowUp size={16} />, onSelect: () => handlers.onMoveGroup(group, "up"), disabled: props.isFirst },
-    { label: "Bajar grupo", icon: <IconArrowDown size={16} />, onSelect: () => handlers.onMoveGroup(group, "down"), disabled: props.isLast },
+    { label: "Subir carpeta", icon: <IconArrowUp size={16} />, onSelect: () => handlers.onMoveGroup(group, "up"), disabled: props.isFirst },
+    { label: "Bajar carpeta", icon: <IconArrowDown size={16} />, onSelect: () => handlers.onMoveGroup(group, "down"), disabled: props.isLast },
     { type: "label", label: "Color" },
     ...COLOR_NAMES.map<MenuItem>((c) => ({
       label: `${COLOR_LABELS[c]}${c === color ? " (actual)" : ""}`,
@@ -76,7 +80,7 @@ export function GroupSection(props: Props) {
     })),
     { type: "separator" },
     {
-      label: "Eliminar grupo",
+      label: "Eliminar carpeta",
       icon: <IconTrash size={16} />,
       danger: true,
       onSelect: () => handlers.onDeleteGroup(group),
@@ -109,7 +113,7 @@ export function GroupSection(props: Props) {
           onClick={() => setCollapsed((c) => !c)}
           aria-expanded={!collapsed}
           aria-controls={bodyId}
-          aria-label={collapsed ? `Expandir grupo ${group.name}` : `Contraer grupo ${group.name}`}
+          aria-label={collapsed ? `Expandir carpeta ${group.name}` : `Contraer carpeta ${group.name}`}
           className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg"
         >
           {collapsed ? <IconChevronRight size={16} /> : <IconChevronDown size={16} />}
@@ -129,7 +133,7 @@ export function GroupSection(props: Props) {
               defaultValue={group.name}
               maxLength={80}
               autoFocus
-              aria-label="Nombre del grupo"
+              aria-label="Nombre de la carpeta"
               onBlur={(e) => e.currentTarget.form?.requestSubmit()}
               onKeyDown={(e) => e.key === "Escape" && setRenaming(false)}
               className="h-8 w-full max-w-sm rounded-lg border border-line bg-surface px-2 text-[15px] font-bold"
@@ -145,15 +149,18 @@ export function GroupSection(props: Props) {
           {allTasks.length === 1 ? "tarea" : "tareas"}
           {allTasks.length > 0 && <span className="hidden sm:inline"> · {doneCount} hechas</span>}
         </span>
-        {!readOnly && <Menu label={`Acciones del grupo ${group.name}`} trigger={<IconDots />} items={groupMenu} />}
+        {!readOnly && <Menu label={`Acciones de la carpeta ${group.name}`} trigger={<IconDots />} items={groupMenu} />}
       </header>
 
       {!collapsed && (
         <div id={bodyId}>
           {/* Escritorio y tablet: tabla con desplazamiento horizontal si hace falta */}
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[880px] table-fixed border-collapse text-sm">
-              <caption className="sr-only">Tareas del grupo {group.name}</caption>
+            <table
+              className="w-full table-fixed border-collapse text-sm"
+              style={{ minWidth: 690 + (props.columns.length ? 260 : 190) + props.columns.length * 140 }}
+            >
+              <caption className="sr-only">Tareas de la carpeta {group.name}</caption>
               <colgroup>
                 <col className="w-8" />
                 <col />
@@ -161,6 +168,9 @@ export function GroupSection(props: Props) {
                 <col className="w-[150px]" />
                 <col className="w-[140px]" />
                 <col className="w-[150px]" />
+                {props.columns.map((c) => (
+                  <col key={c.id} className="w-[140px]" />
+                ))}
                 <col className="w-12" />
               </colgroup>
               <thead>
@@ -173,6 +183,11 @@ export function GroupSection(props: Props) {
                   <th scope="col" className="px-2 py-2">Estado</th>
                   <th scope="col" className="px-2 py-2">Prioridad</th>
                   <th scope="col" className="px-2 py-2">Vencimiento</th>
+                  {props.columns.map((c) => (
+                    <th key={c.id} scope="col" className="truncate px-2 py-2" title={c.name}>
+                      {c.name}
+                    </th>
+                  ))}
                   <th scope="col" className="px-2 py-2">
                     <span className="sr-only">Acciones</span>
                   </th>
@@ -203,8 +218,8 @@ export function GroupSection(props: Props) {
                 ))}
                 {visibleTasks.length === 0 && (
                   <tr>
-                    <td colSpan={7} className={cn("px-4 py-5 text-center text-sm text-muted", dropIndex !== null && "bg-accent-soft")}>
-                      {filtered ? "Ninguna tarea de este grupo coincide con los filtros." : "Este grupo está vacío. Agregá la primera tarea abajo."}
+                    <td colSpan={7 + props.columns.length} className={cn("px-4 py-5 text-center text-sm text-muted", dropIndex !== null && "bg-accent-soft")}>
+                      {filtered ? "Ninguna tarea de esta carpeta coincide con los filtros." : "Esta carpeta está vacía. Agregá la primera tarea abajo."}
                     </td>
                   </tr>
                 )}
@@ -219,7 +234,7 @@ export function GroupSection(props: Props) {
             ))}
             {visibleTasks.length === 0 && (
               <li className="px-4 py-5 text-center text-sm text-muted">
-                {filtered ? "Ninguna tarea coincide con los filtros." : "Este grupo está vacío."}
+                {filtered ? "Ninguna tarea coincide con los filtros." : "Esta carpeta está vacía."}
               </li>
             )}
           </ul>
@@ -318,6 +333,7 @@ function TaskRow({
   const pending = task.id.startsWith("tmp-");
   const disabled = readOnly || pending;
   const done = Boolean(task.status_id && doneIds.has(task.status_id));
+  const values = readValues(task.custom_values);
 
   return (
     <tr
@@ -405,6 +421,18 @@ function TaskRow({
           onChange={(due_date) => handlers.onUpdateTask(task, { due_date })}
         />
       </td>
+      {props.columns.map((c) => (
+        <td key={c.id} className="px-1.5 py-1.5">
+          <CustomValueInput
+            column={c}
+            value={values[c.id]}
+            members={members}
+            disabled={disabled}
+            label={`${c.name} de ${task.title}`}
+            onChange={(v) => handlers.onSetValue(task, c.id, v)}
+          />
+        </td>
+      ))}
       <td className="px-1 text-center">
         {!disabled && <Menu label={`Acciones de ${task.title}`} trigger={<IconDots />} items={taskMenu(task, props)} />}
       </td>
