@@ -7,6 +7,7 @@ import { boardSchema, colorSchema, groupNameSchema, statusSchema, uuidSchema } f
 import { fail, fromDb, fromZod, ok, type ActionResult } from "@/lib/action-result";
 import { POSITION_STEP } from "@/lib/constants";
 import { z } from "zod";
+import { boardSettingsSchema, type BoardSettings } from "@/lib/board-settings";
 
 export type BoardFormState = ActionResult<undefined> | null;
 
@@ -270,4 +271,78 @@ export async function deleteStatusAction(statusId: string): Promise<ActionResult
   if (!data?.length) return fail("No tenés permiso para editar los estados de este tablero.");
   refresh();
   return ok(undefined, "Estado eliminado. Las tareas que lo usaban quedaron sin estado.");
+}
+
+/**
+ * Guarda de una vez las etiquetas del Estado (edición en la celda, como en
+ * Monday): actualiza las existentes, crea las nuevas, elimina las quitadas y
+ * respeta el orden recibido.
+ */
+const statusListSchema = z
+  .array(
+    z.object({
+      id: z.string().optional(),
+      label: statusSchema.shape.label,
+      color: colorSchema,
+      isDone: z.boolean(),
+    }),
+  )
+  .min(1, { message: "El tablero necesita al menos un estado." })
+  .max(60, { message: "Hasta 60 estados." });
+
+export async function saveStatusesAction(
+  boardId: string,
+  input: { id?: string; label: string; color: string; isDone: boolean }[],
+): Promise<ActionResult> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  if (!uuidSchema.safeParse(boardId).success) return fail("Tablero inválido.");
+  const parsed = statusListSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Datos inválidos.");
+  const labels = parsed.data.map((s) => s.label.toLowerCase());
+  if (new Set(labels).size !== labels.length) return fail("Hay dos estados con el mismo nombre.");
+
+  const { data: current, error: readError } = await ctx.supabase.from("board_statuses").select("id").eq("board_id", boardId);
+  if (readError || !current) return fail("No se pudieron leer los estados.");
+  const existing = new Set(current.map((s) => s.id));
+  const keep = new Set(parsed.data.filter((s) => s.id && existing.has(s.id)).map((s) => s.id!));
+
+  for (const [i, s] of parsed.data.entries()) {
+    if (s.id && existing.has(s.id)) {
+      const { data, error } = await ctx.supabase
+        .from("board_statuses")
+        .update({ label: s.label, color: s.color, is_done: s.isDone, position: i })
+        .eq("id", s.id)
+        .select("id");
+      if (error) return fromDb(error);
+      if (!data?.length) return fail("No tenés permiso para editar los estados de este tablero.");
+    } else {
+      const { error } = await ctx.supabase
+        .from("board_statuses")
+        .insert({ board_id: boardId, label: s.label, color: s.color, is_done: s.isDone, position: i });
+      if (error) return fromDb(error, "No se pudo crear el estado.");
+    }
+  }
+  const removed = [...existing].filter((id) => !keep.has(id));
+  if (removed.length) {
+    const { error } = await ctx.supabase.from("board_statuses").delete().in("id", removed);
+    if (error) return fromDb(error, "No se pudo eliminar un estado (puede que lo use una regla).");
+  }
+  refresh();
+  return ok(undefined, "Etiquetas guardadas.");
+}
+
+/* ------------------------------------------------- ajustes visuales del tablero */
+
+export async function updateBoardSettingsAction(boardId: string, settings: BoardSettings): Promise<ActionResult> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  if (!uuidSchema.safeParse(boardId).success) return fail("Tablero inválido.");
+  const parsed = boardSettingsSchema.safeParse(settings);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Ajustes inválidos.");
+  const { data, error } = await ctx.supabase.from("boards").update({ settings: parsed.data }).eq("id", boardId).select("id");
+  if (error) return fromDb(error);
+  if (!data?.length) return fail("Solo quien administra el tablero puede cambiar sus columnas.");
+  refresh();
+  return ok(undefined);
 }

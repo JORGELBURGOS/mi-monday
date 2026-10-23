@@ -216,19 +216,23 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          legacy_kind: string
           name: string
           options: Json
           position: number
+          settings: Json
           updated_at: string
         }
         Insert: {
           board_id: string
           created_at?: string
           id?: string
-          kind: string
+          kind?: string
+          legacy_kind?: string
           name: string
           options?: Json
           position?: number
+          settings?: Json
           updated_at?: string
         }
         Update: {
@@ -236,9 +240,11 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          legacy_kind?: string
           name?: string
           options?: Json
           position?: number
+          settings?: Json
           updated_at?: string
         }
         Relationships: [
@@ -264,6 +270,7 @@ export type Database = {
           color: string
           created_at: string
           id: string
+          legacy_color: string
           name: string
           position: number
           updated_at: string
@@ -273,6 +280,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          legacy_color?: string
           name: string
           position?: number
           updated_at?: string
@@ -282,6 +290,7 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          legacy_color?: string
           name?: string
           position?: number
           updated_at?: string
@@ -361,6 +370,7 @@ export type Database = {
           id: string
           is_done: boolean
           label: string
+          legacy_color: string
           position: number
           updated_at: string
         }
@@ -371,6 +381,7 @@ export type Database = {
           id?: string
           is_done?: boolean
           label: string
+          legacy_color?: string
           position?: number
           updated_at?: string
         }
@@ -381,6 +392,7 @@ export type Database = {
           id?: string
           is_done?: boolean
           label?: string
+          legacy_color?: string
           position?: number
           updated_at?: string
         }
@@ -410,6 +422,7 @@ export type Database = {
           id: string
           is_archived: boolean
           name: string
+          settings: Json
           updated_at: string
           visibility: Database["public"]["Enums"]["board_visibility"]
           workspace_id: string
@@ -422,6 +435,7 @@ export type Database = {
           id?: string
           is_archived?: boolean
           name: string
+          settings?: Json
           updated_at?: string
           visibility?: Database["public"]["Enums"]["board_visibility"]
           workspace_id: string
@@ -434,6 +448,7 @@ export type Database = {
           id?: string
           is_archived?: boolean
           name?: string
+          settings?: Json
           updated_at?: string
           visibility?: Database["public"]["Enums"]["board_visibility"]
           workspace_id?: string

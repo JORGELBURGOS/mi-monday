@@ -14,22 +14,29 @@ import { Button } from "@/components/ui/button";
 import { Field, FormAlert, Input, Select, Textarea } from "@/components/ui/form";
 import { Avatar } from "@/components/ui/misc";
 import { IconCopy, IconTrash } from "@/components/ui/icons";
-import { PRIORITIES, type Priority } from "@/lib/constants";
+import { asColor, type Priority } from "@/lib/constants";
 import { displayName, formatDateTime, relativeTime } from "@/lib/format";
 import { taskTitleSchema } from "@/lib/validation";
 import { setCustomValuesAction } from "@/app/actions/columns";
-import { readValues, type BoardColumn, type CellValue } from "@/lib/columns";
+import { COMPUTED_KINDS, readValues, type BoardColumn, type CellValue } from "@/lib/columns";
+import { builtinLabel, type PriorityLabel } from "@/lib/board-settings";
+import { formulaValue, itemCode, type RowEnv } from "@/lib/row-values";
+import { LabelCell } from "./label-picker";
+import type { LabelEditors } from "./group-section";
 import { cn } from "@/lib/cn";
-import { CustomValueInput } from "./custom-cell";
+import { ComputedCell, CustomValueInput } from "./custom-cell";
 import { TaskTrace } from "./task-trace";
 import type { Group, Member, Status, Task } from "./types";
 
 export function TaskDialog({
   task,
   statuses,
+  priorities,
   groups,
   members,
   columns,
+  env,
+  labelEditors,
   readOnly,
   onClose,
   onOpenTask,
@@ -40,9 +47,12 @@ export function TaskDialog({
 }: {
   task: Task;
   statuses: Status[];
+  priorities: PriorityLabel[];
   groups: Group[];
   members: Member[];
   columns: BoardColumn[];
+  env: RowEnv;
+  labelEditors: LabelEditors;
   today: string;
   readOnly: boolean;
   onClose: () => void;
@@ -79,7 +89,10 @@ export function TaskDialog({
     changedValues().length > 0;
 
   function changedValues() {
-    return columns.filter((c) => (values[c.id] ?? null) !== (initialValues[c.id] ?? null)).map((c) => c.id);
+    return columns
+      .filter((c) => !COMPUTED_KINDS.includes(c.kind))
+      .filter((c) => JSON.stringify(values[c.id] ?? null) !== JSON.stringify(initialValues[c.id] ?? null))
+      .map((c) => c.id);
   }
 
   const save = () => {
@@ -125,11 +138,11 @@ export function TaskDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} title={readOnly ? task.title : "Detalle de la tarea"} size="lg">
+    <Dialog open onClose={onClose} title={readOnly ? task.title : "Detalle del elemento"} size="lg">
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
         <div className="space-y-4">
           {error && <FormAlert>{error}</FormAlert>}
-          <Field id={`${uid}-title`} label="Título" error={titleError ?? undefined}>
+          <Field id={`${uid}-title`} label={builtinLabel(env.settings, "title")} error={titleError ?? undefined}>
             <Input
               id={`${uid}-title`}
               value={title}
@@ -189,26 +202,31 @@ export function TaskDialog({
         </div>
 
         <aside className="space-y-3 md:border-l md:border-line md:pl-6">
-          <Field id={`${uid}-status`} label="Estado">
-            <Select id={`${uid}-status`} value={statusId} onChange={(e) => setStatusId(e.target.value)} disabled={readOnly}>
-              <option value="">Sin estado</option>
-              {statuses.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
+          <Field id={`${uid}-status`} label={builtinLabel(env.settings, "status")}>
+            <LabelCell
+              variant="field"
+              labels={statuses.map((st) => ({ id: st.id, label: st.label, color: asColor(st.color), done: st.is_done }))}
+              value={statusId || null}
+              onChange={(v) => setStatusId(typeof v === "string" ? v : "")}
+              label={builtinLabel(env.settings, "status")}
+              disabled={readOnly}
+              editing={labelEditors.status}
+              emptyText="Sin estado"
+            />
           </Field>
-          <Field id={`${uid}-prio`} label="Prioridad">
-            <Select id={`${uid}-prio`} value={priority} onChange={(e) => setPriority(e.target.value as Priority)} disabled={readOnly}>
-              {PRIORITIES.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </Select>
+          <Field id={`${uid}-prio`} label={builtinLabel(env.settings, "priority")}>
+            <LabelCell
+              variant="field"
+              labels={priorities.map((p) => ({ id: p.value, label: p.label, color: p.color }))}
+              value={priority}
+              onChange={(v) => typeof v === "string" && setPriority(v as Priority)}
+              label={builtinLabel(env.settings, "priority")}
+              disabled={readOnly}
+              editing={labelEditors.priority}
+              allowEmpty={false}
+            />
           </Field>
-          <Field id={`${uid}-assignee`} label="Responsable">
+          <Field id={`${uid}-assignee`} label={builtinLabel(env.settings, "assignee")}>
             <Select id={`${uid}-assignee`} value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} disabled={readOnly}>
               <option value="">Sin responsable</option>
               {members.map((m) => (
@@ -218,7 +236,7 @@ export function TaskDialog({
               ))}
             </Select>
           </Field>
-          <Field id={`${uid}-due`} label="Vencimiento">
+          <Field id={`${uid}-due`} label={builtinLabel(env.settings, "due")}>
             <Input id={`${uid}-due`} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly} />
           </Field>
           <Field id={`${uid}-group`} label="Carpeta">
@@ -230,20 +248,39 @@ export function TaskDialog({
               ))}
             </Select>
           </Field>
-          {columns.map((c) => (
-            <Field key={c.id} id={`${uid}-col-${c.id}`} label={c.name}>
-              <CustomValueInput
-                id={`${uid}-col-${c.id}`}
-                variant="field"
-                column={c}
-                value={values[c.id] ?? undefined}
-                members={members}
-                disabled={readOnly}
-                label={c.name}
-                onChange={(v) => setValues((prev) => ({ ...prev, [c.id]: v }))}
-              />
-            </Field>
-          ))}
+          {columns.map((c) =>
+            COMPUTED_KINDS.includes(c.kind) ? (
+              <div key={c.id}>
+                <p className="mb-1.5 text-sm font-semibold">{c.name}</p>
+                <ComputedCell
+                  column={c}
+                  variant="field"
+                  result={c.kind === "formula" ? formulaValue(task, c, env) : undefined}
+                  createdAt={task.created_at}
+                  updatedAt={task.updated_at}
+                  creator={(() => {
+                    const m = members.find((x) => x.user_id === task.created_by);
+                    return m ? displayName(m) : undefined;
+                  })()}
+                  code={itemCode(task.id)}
+                />
+              </div>
+            ) : (
+              <Field key={c.id} id={`${uid}-col-${c.id}`} label={c.name}>
+                <CustomValueInput
+                  id={`${uid}-col-${c.id}`}
+                  variant="field"
+                  column={c}
+                  value={values[c.id] ?? undefined}
+                  members={members}
+                  disabled={readOnly}
+                  label={c.name}
+                  labelEditing={labelEditors.column(c)}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [c.id]: v }))}
+                />
+              </Field>
+            ),
+          )}
           <dl className="space-y-1 border-t border-line pt-3 text-xs text-muted">
             <div>
               <dt className="inline">Creada: </dt>

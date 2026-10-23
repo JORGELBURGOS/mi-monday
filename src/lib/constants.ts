@@ -27,7 +27,11 @@ export const VISIBILITY_LABELS: Record<Visibility, string> = {
   private: "Solo las personas con acceso",
 };
 
-export const COLOR_NAMES = ["gray", "amber", "blue", "green", "red", "violet", "teal", "pink", "orange"] as const;
+export const COLOR_NAMES = [
+  "green", "orange", "red", "blue", "violet", "gray",
+  "amber", "teal", "pink", "lime", "yellow", "sky",
+  "indigo", "purple", "rose", "brown", "navy", "olive",
+] as const;
 export type ColorName = (typeof COLOR_NAMES)[number];
 
 export const COLOR_LABELS: Record<ColorName, string> = {
@@ -40,6 +44,15 @@ export const COLOR_LABELS: Record<ColorName, string> = {
   teal: "Turquesa",
   pink: "Rosa",
   orange: "Naranja",
+  lime: "Lima",
+  yellow: "Amarillo",
+  sky: "Celeste",
+  indigo: "Índigo",
+  purple: "Púrpura",
+  rose: "Frambuesa",
+  brown: "Marrón",
+  navy: "Azul marino",
+  olive: "Oliva",
 };
 
 export function asColor(value: string | null | undefined): ColorName {

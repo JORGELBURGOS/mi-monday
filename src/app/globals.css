@@ -39,6 +39,35 @@
   --chip-teal-bg: #dcf2f0;   --chip-teal-fg: #17635c;   --chip-teal-dot: #26a091;
   --chip-pink-bg: #fbe3ef;   --chip-pink-fg: #9c2560;   --chip-pink-dot: #db4f91;
   --chip-orange-bg: #fde7d9; --chip-orange-fg: #9a3f0d; --chip-orange-dot: #e9752f;
+  --chip-lime-bg: #ebf5d6;   --chip-lime-fg: #3f5f0e;   --chip-lime-dot: #7cb32b;
+  --chip-yellow-bg: #fdf6c8; --chip-yellow-fg: #6b5800; --chip-yellow-dot: #e8c21a;
+  --chip-sky-bg: #dcf0fb;    --chip-sky-fg: #0d5f8c;    --chip-sky-dot: #28a3dd;
+  --chip-indigo-bg: #e4e6fa; --chip-indigo-fg: #353f9e; --chip-indigo-dot: #5865d6;
+  --chip-purple-bg: #f3e2f9; --chip-purple-fg: #7a248f; --chip-purple-dot: #a845c7;
+  --chip-rose-bg: #fce1e6;   --chip-rose-fg: #a11d3d;   --chip-rose-dot: #e2496c;
+  --chip-brown-bg: #f1e6dc;  --chip-brown-fg: #6b4222;  --chip-brown-dot: #a26b43;
+  --chip-navy-bg: #dfe5ef;   --chip-navy-fg: #1f3a68;   --chip-navy-dot: #36588f;
+  --chip-olive-bg: #eceedb;  --chip-olive-fg: #4f5a17;  --chip-olive-dot: #8a982f;
+
+  /* Relleno sólido de etiquetas (estilo Monday): contraste AA con su texto. */
+  --solid-gray: #6b665e;   --solid-gray-fg: #fff;
+  --solid-amber: #9a6200;  --solid-amber-fg: #fff;
+  --solid-blue: #2563c9;   --solid-blue-fg: #fff;
+  --solid-green: #1f7a47;  --solid-green-fg: #fff;
+  --solid-red: #c8352a;    --solid-red-fg: #fff;
+  --solid-violet: #6d47c9; --solid-violet-fg: #fff;
+  --solid-teal: #11766b;   --solid-teal-fg: #fff;
+  --solid-pink: #b8336f;   --solid-pink-fg: #fff;
+  --solid-orange: #b8521a; --solid-orange-fg: #fff;
+  --solid-lime: #9ccc4a;   --solid-lime-fg: #1d2a0c;
+  --solid-yellow: #f2c230; --solid-yellow-fg: #2b2300;
+  --solid-sky: #0e7ab8;    --solid-sky-fg: #fff;
+  --solid-indigo: #3f4bb8; --solid-indigo-fg: #fff;
+  --solid-purple: #8a2fb0; --solid-purple-fg: #fff;
+  --solid-rose: #c22f4f;   --solid-rose-fg: #fff;
+  --solid-brown: #7a4b2a;  --solid-brown-fg: #fff;
+  --solid-navy: #1f3a68;   --solid-navy-fg: #fff;
+  --solid-olive: #5e6b1f;  --solid-olive-fg: #fff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -76,6 +105,15 @@
     --chip-teal-bg: #12302d;   --chip-teal-fg: #95ddd4;   --chip-teal-dot: #36b3a3;
     --chip-pink-bg: #3b1a2b;   --chip-pink-fg: #f3abcd;   --chip-pink-dot: #e46aa4;
     --chip-orange-bg: #3b2213; --chip-orange-fg: #f6be98; --chip-orange-dot: #ef8c4c;
+    --chip-lime-bg: #24300f;   --chip-lime-fg: #c5e597;   --chip-lime-dot: #8fc441;
+    --chip-yellow-bg: #3a330a; --chip-yellow-fg: #f3e08a; --chip-yellow-dot: #e8c62c;
+    --chip-sky-bg: #0f2d3d;    --chip-sky-fg: #9fd7f4;    --chip-sky-dot: #3fb0e6;
+    --chip-indigo-bg: #1e2246; --chip-indigo-fg: #b9c0f6; --chip-indigo-dot: #7581e4;
+    --chip-purple-bg: #321a3c; --chip-purple-fg: #e2b2f2; --chip-purple-dot: #bb63d9;
+    --chip-rose-bg: #3d1820;   --chip-rose-fg: #f6a9ba;   --chip-rose-dot: #ea6584;
+    --chip-brown-bg: #33251a;  --chip-brown-fg: #e3c3a8;  --chip-brown-dot: #b98258;
+    --chip-navy-bg: #1a2438;   --chip-navy-fg: #b4c5e4;   --chip-navy-dot: #5f80b8;
+    --chip-olive-bg: #2b2e14;  --chip-olive-fg: #d4dc9c;  --chip-olive-dot: #a2b141;
   }
 }
 
@@ -136,6 +174,15 @@ body {
 .chip-teal   { background-color: var(--chip-teal-bg);   color: var(--chip-teal-fg);   --dot: var(--chip-teal-dot); }
 .chip-pink   { background-color: var(--chip-pink-bg);   color: var(--chip-pink-fg);   --dot: var(--chip-pink-dot); }
 .chip-orange { background-color: var(--chip-orange-bg); color: var(--chip-orange-fg); --dot: var(--chip-orange-dot); }
+.chip-lime { background-color: var(--chip-lime-bg); color: var(--chip-lime-fg); --dot: var(--chip-lime-dot); }
+.chip-yellow { background-color: var(--chip-yellow-bg); color: var(--chip-yellow-fg); --dot: var(--chip-yellow-dot); }
+.chip-sky { background-color: var(--chip-sky-bg); color: var(--chip-sky-fg); --dot: var(--chip-sky-dot); }
+.chip-indigo { background-color: var(--chip-indigo-bg); color: var(--chip-indigo-fg); --dot: var(--chip-indigo-dot); }
+.chip-purple { background-color: var(--chip-purple-bg); color: var(--chip-purple-fg); --dot: var(--chip-purple-dot); }
+.chip-rose { background-color: var(--chip-rose-bg); color: var(--chip-rose-fg); --dot: var(--chip-rose-dot); }
+.chip-brown { background-color: var(--chip-brown-bg); color: var(--chip-brown-fg); --dot: var(--chip-brown-dot); }
+.chip-navy { background-color: var(--chip-navy-bg); color: var(--chip-navy-fg); --dot: var(--chip-navy-dot); }
+.chip-olive { background-color: var(--chip-olive-bg); color: var(--chip-olive-fg); --dot: var(--chip-olive-dot); }
 
 .dot-gray   { --dot: var(--chip-gray-dot); }
 .dot-amber  { --dot: var(--chip-amber-dot); }
@@ -146,6 +193,35 @@ body {
 .dot-teal   { --dot: var(--chip-teal-dot); }
 .dot-pink   { --dot: var(--chip-pink-dot); }
 .dot-orange { --dot: var(--chip-orange-dot); }
+.dot-lime { --dot: var(--chip-lime-dot); }
+.dot-yellow { --dot: var(--chip-yellow-dot); }
+.dot-sky { --dot: var(--chip-sky-dot); }
+.dot-indigo { --dot: var(--chip-indigo-dot); }
+.dot-purple { --dot: var(--chip-purple-dot); }
+.dot-rose { --dot: var(--chip-rose-dot); }
+.dot-brown { --dot: var(--chip-brown-dot); }
+.dot-navy { --dot: var(--chip-navy-dot); }
+.dot-olive { --dot: var(--chip-olive-dot); }
+
+/* Etiqueta con relleno sólido (estados y desplegables en la tabla). */
+.solid-gray { background-color: var(--solid-gray); color: var(--solid-gray-fg); --dot: var(--solid-gray); }
+.solid-amber { background-color: var(--solid-amber); color: var(--solid-amber-fg); --dot: var(--solid-amber); }
+.solid-blue { background-color: var(--solid-blue); color: var(--solid-blue-fg); --dot: var(--solid-blue); }
+.solid-green { background-color: var(--solid-green); color: var(--solid-green-fg); --dot: var(--solid-green); }
+.solid-red { background-color: var(--solid-red); color: var(--solid-red-fg); --dot: var(--solid-red); }
+.solid-violet { background-color: var(--solid-violet); color: var(--solid-violet-fg); --dot: var(--solid-violet); }
+.solid-teal { background-color: var(--solid-teal); color: var(--solid-teal-fg); --dot: var(--solid-teal); }
+.solid-pink { background-color: var(--solid-pink); color: var(--solid-pink-fg); --dot: var(--solid-pink); }
+.solid-orange { background-color: var(--solid-orange); color: var(--solid-orange-fg); --dot: var(--solid-orange); }
+.solid-lime { background-color: var(--solid-lime); color: var(--solid-lime-fg); --dot: var(--solid-lime); }
+.solid-yellow { background-color: var(--solid-yellow); color: var(--solid-yellow-fg); --dot: var(--solid-yellow); }
+.solid-sky { background-color: var(--solid-sky); color: var(--solid-sky-fg); --dot: var(--solid-sky); }
+.solid-indigo { background-color: var(--solid-indigo); color: var(--solid-indigo-fg); --dot: var(--solid-indigo); }
+.solid-purple { background-color: var(--solid-purple); color: var(--solid-purple-fg); --dot: var(--solid-purple); }
+.solid-rose { background-color: var(--solid-rose); color: var(--solid-rose-fg); --dot: var(--solid-rose); }
+.solid-brown { background-color: var(--solid-brown); color: var(--solid-brown-fg); --dot: var(--solid-brown); }
+.solid-navy { background-color: var(--solid-navy); color: var(--solid-navy-fg); --dot: var(--solid-navy); }
+.solid-olive { background-color: var(--solid-olive); color: var(--solid-olive-fg); --dot: var(--solid-olive); }
 
 /* Select nativo con aspecto de chip (accesible y usable en móviles). */
 .select-chip {

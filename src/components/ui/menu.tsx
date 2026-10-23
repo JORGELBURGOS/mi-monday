@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 
 export type MenuItem =
@@ -33,7 +34,8 @@ export function Menu({
   triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [openUp, setOpenUp] = useState(false);
+  const [container, setContainer] = useState<Element | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number; maxHeight: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -48,9 +50,24 @@ export function Menu({
     if (restoreFocus) buttonRef.current?.focus();
   }, []);
 
+  // El menú flota sobre la página (portal) para que no lo recorten tablas con scroll.
+  const place = useCallback(() => {
+    const r = buttonRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const up = vh - r.bottom < 280 && r.top > vh - r.bottom;
+    const horizontal = align === "end" ? { right: Math.max(8, vw - r.right) } : { left: Math.max(8, Math.min(r.left, vw - 216)) };
+    setPos(
+      up
+        ? { bottom: vh - r.top + 4, ...horizontal, maxHeight: r.top - 12 }
+        : { top: r.bottom + 4, ...horizontal, maxHeight: vh - r.bottom - 12 },
+    );
+  }, [align]);
+
   const openMenu = () => {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    setOpenUp(rect ? window.innerHeight - rect.bottom < 280 && rect.top > 280 : false);
+    setContainer(buttonRef.current?.closest("dialog") ?? document.body);
+    place();
     setOpen(true);
   };
 
@@ -62,9 +79,19 @@ export function Menu({
         close(false);
       }
     };
+    const onScroll = (e: Event) => {
+      // Al desplazar la página o la tabla, el menú acompaña a su botón.
+      if (!listRef.current?.contains(e.target as Node)) place();
+    };
     document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [open, close, focusables]);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", place);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, close, focusables, place]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const els = focusables();
@@ -112,18 +139,15 @@ export function Menu({
       >
         {trigger}
       </button>
-      {open && (
+      {open && pos && container && createPortal(
         <div
           ref={listRef}
           id={menuId}
           role="menu"
           aria-label={label}
           onKeyDown={onKeyDown}
-          className={cn(
-            "animate-in absolute z-40 min-w-52 rounded-xl border border-line bg-surface p-1 shadow-pop",
-            align === "end" ? "right-0" : "left-0",
-            openUp ? "bottom-full mb-1" : "top-full mt-1",
-          )}
+          style={{ position: "fixed", ...pos }}
+          className="animate-in z-[55] min-w-52 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-pop"
         >
           {items.map((item, i) => {
             if (item.type === "separator") return <div key={i} role="separator" className="my-1 h-px bg-line" />;
@@ -155,7 +179,8 @@ export function Menu({
               </button>
             );
           })}
-        </div>
+        </div>,
+        container,
       )}
     </div>
   );

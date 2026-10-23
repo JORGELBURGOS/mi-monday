@@ -6,6 +6,7 @@ import { getBoardData } from "@/lib/data";
 import { uuidSchema } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 import { BoardView } from "@/components/board/board-view";
+import { parseBoardSettings } from "@/lib/board-settings";
 import { BoardHeaderActions } from "@/components/board/board-header-actions";
 import { IconLock, IconUsers } from "@/components/ui/icons";
 
@@ -31,10 +32,10 @@ export default async function BoardPage({ params, searchParams }: Props) {
   if (!data) notFound();
 
   const { board, workspace, canManage } = data;
-  const view = sp.vista === "calendario" ? "calendario" : "tabla";
+  const view = sp.vista === "calendario" ? "calendario" : sp.vista === "kanban" ? "kanban" : "tabla";
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 pt-6 sm:px-8">
+    <div className="w-full px-4 pt-6 sm:px-8">
       <nav aria-label="Ruta" className="mb-2 text-sm text-muted">
         <Link href={`/e/${workspace.id}`} className="hover:text-fg hover:underline">
           {workspace.name}
@@ -68,7 +69,10 @@ export default async function BoardPage({ params, searchParams }: Props) {
 
       <BoardView
         boardId={board.id}
+        boardName={board.name}
         view={view}
+        settings={parseBoardSettings(board.settings)}
+        canManage={canManage}
         statuses={data.statuses}
         groups={data.groups}
         tasks={data.tasks}

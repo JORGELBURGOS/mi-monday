@@ -41,7 +41,7 @@ const actionConfigSchema = z
     user_id: uuid,
     days: int(-365, 365),
     column_id: uuid,
-    value: z.union([z.string().max(500), z.number(), z.boolean()]),
+    value: z.union([z.string().max(500), z.number(), z.boolean(), z.array(z.string().max(40)).max(100)]),
     to: z.enum(["assignee", "creator", "user", "admins"]),
     message: z.string().trim().max(500, { message: "El aviso puede tener hasta 500 caracteres." }),
     text: z.string().trim().max(2000, { message: "El comentario puede tener hasta 2000 caracteres." }),
@@ -73,7 +73,7 @@ const automationSchema = z.object({
   target_status_id: uuid.nullable(),
   copy_fields: z.array(z.enum(COPY_FIELDS)).max(COPY_FIELDS.length),
   column_map: z.array(z.object({ from: uuid, to: uuid })).max(100),
-  extra_values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  extra_values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])),
 });
 
 export type AutomationInput = z.input<typeof automationSchema>;

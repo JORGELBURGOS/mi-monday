@@ -187,3 +187,58 @@ export async function deleteCommentAction(commentId: string): Promise<ActionResu
   if (!data?.length) return fail("Solo podés eliminar tus propios comentarios.");
   return ok(undefined);
 }
+
+/* ------------------------------------------------- acciones en lote (selección) */
+
+const idsSchema = uuidSchema.array().min(1).max(500);
+
+/** Cambia el mismo campo en varios elementos a la vez. */
+export async function updateTasksAction(taskIds: string[], patch: Record<string, unknown>): Promise<ActionResult> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  const ids = idsSchema.safeParse(taskIds);
+  const parsed = taskPatchSchema.safeParse(patch);
+  if (!ids.success || !parsed.success) return fail("Datos inválidos.");
+  const { data, error } = await ctx.supabase.from("tasks").update(parsed.data).in("id", ids.data).select("id");
+  if (error) return fromDb(error);
+  refresh();
+  return ok(undefined, `${data?.length ?? 0} ${data?.length === 1 ? "elemento actualizado" : "elementos actualizados"}.`);
+}
+
+/** Mueve varios elementos al final de una carpeta. */
+export async function moveTasksAction(taskIds: string[], groupId: string): Promise<ActionResult> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  const ids = idsSchema.safeParse(taskIds);
+  if (!ids.success || !uuidSchema.safeParse(groupId).success) return fail("Datos inválidos.");
+  const { data: last } = await ctx.supabase.from("tasks").select("position").eq("group_id", groupId).order("position", { ascending: false }).limit(1).maybeSingle();
+  let position = (last?.position ?? 0) + POSITION_STEP;
+  for (const id of ids.data) {
+    const { error } = await ctx.supabase.from("tasks").update({ group_id: groupId, position }).eq("id", id);
+    if (error) return fromDb(error, "No se pudo mover un elemento.");
+    position += POSITION_STEP;
+  }
+  refresh();
+  return ok(undefined, ids.data.length === 1 ? "Elemento movido." : `${ids.data.length} elementos movidos.`);
+}
+
+export async function duplicateTasksAction(taskIds: string[]): Promise<ActionResult> {
+  const ids = idsSchema.safeParse(taskIds);
+  if (!ids.success) return fail("Datos inválidos.");
+  for (const id of ids.data) {
+    const res = await duplicateTaskAction(id);
+    if (!res.ok) return res;
+  }
+  return ok(undefined, ids.data.length === 1 ? "Elemento duplicado." : `${ids.data.length} elementos duplicados.`);
+}
+
+export async function deleteTasksAction(taskIds: string[]): Promise<ActionResult> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  const ids = idsSchema.safeParse(taskIds);
+  if (!ids.success) return fail("Datos inválidos.");
+  const { data, error } = await ctx.supabase.from("tasks").delete().in("id", ids.data).select("id");
+  if (error) return fromDb(error, "No se pudieron eliminar los elementos.");
+  refresh();
+  return ok(undefined, `${data?.length ?? 0} ${data?.length === 1 ? "elemento eliminado" : "elementos eliminados"}.`);
+}

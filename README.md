@@ -26,11 +26,15 @@ Plataforma para seguir el trabajo de punta a punta: empresas separadas entre sí
 - Tablero de ejemplo opcional al crear una empresa nueva (contenido marcado como “Ejemplo”).
 - Carpetas ordenables (renombrar, color, subir/bajar, eliminar).
 - Tareas: crear, editar en línea, duplicar, mover entre carpetas, reordenar (arrastrar o con el menú, accesible por teclado), eliminar con confirmación.
-- Estados configurables por tablero (iniciales: Pendiente, En progreso, En revisión, Hecho) y prioridades Baja/Media/Alta/Urgente.
-- Vista de tabla con búsqueda, filtros (estado, prioridad, responsable) y orden (nombre, prioridad, vencimiento, estado). En celular se muestra como tarjetas.
-- Vista de calendario mensual por fecha de vencimiento.
-- Comentarios por tarea.
-- **Columnas propias por tablero**: texto, número, fecha, persona, lista de opciones y casilla (Ajustes del tablero → Columnas).
+- **Tablero al estilo Monday** (todo se edita en el mismo tablero):
+  - **Etiquetas editables desde la celda**: al tocar un Estado, Prioridad o cualquier columna de etiquetas aparece “Editar etiquetas” para crear, renombrar, recolorear (paleta de 18 colores), reordenar, marcar como “terminado” o quitar etiquetas.
+  - **Agregar columnas** con el **+** al final de los encabezados (o desde el menú de cualquier columna, a su derecha). Tipos: Estado/Etiqueta, Texto, Texto largo, Números (unidad, decimales y resumen), Fecha, Cronograma, Persona, Desplegable de varias opciones, Casilla, Calificación, Enlace, Email, Teléfono, Hora, **Fórmula**, ID del elemento, Registro de creación y Última actualización.
+  - **Menú de cada columna**: configurar, renombrar (o doble clic), ordenar, mover a izquierda/derecha, ocultar, duplicar (con o sin valores) y eliminar. Las columnas fijas (Responsable, Estado, Prioridad, Vencimiento) también se renombran, mueven y ocultan.
+  - **Fórmulas** como en Monday/Excel: `{Precio} * {Cantidad}`, `IF({Estado} = "Listo", "✔", "")`, `DAYS({Vencimiento}, TODAY())`, `WORKDAYS({Cronograma#Fin}, {Cronograma#Inicio})`, `TEXT({Monto}, "$#,##0.00")`… Más de 60 funciones de números, texto, lógica y fechas, con editor, catálogo y vista previa. Se calculan sin `eval` (parser propio en `src/lib/formula.ts`).
+  - **Resumen al pie de cada carpeta**: suma/promedio/mediana/mín/máx/cantidad de números y fórmulas, barra de distribución de estados y etiquetas, rango de fechas, promedio de calificación.
+  - **Vistas**: Tabla, **Kanban** (arrastrar cambia el estado) y Calendario.
+  - **Selección múltiple** con acciones en lote: cambiar estado o prioridad, mover de carpeta, duplicar, exportar y eliminar.
+  - Búsqueda en todas las columnas, filtros por estado, prioridad, responsable y cualquier columna de etiquetas/persona/casilla; orden por cualquier columna; **Exportar** a CSV para Excel.
 - **Reglas entre tableros** (Tablero → Reglas): cuando un ítem cambia de estado, entra a una carpeta o llega al tablero, se puede
   - **copiar** a otro tablero/carpeta, eligiendo qué campos y columnas viajan y agregando valores fijos;
   - **mover** completo a otro tablero (con comentarios e historial);
@@ -56,7 +60,7 @@ Plataforma para seguir el trabajo de punta a punta: empresas separadas entre sí
 - Las reglas solo las crea quien administra el tablero de origen **y** el de destino, dentro de la misma empresa. El motor que las ejecuta corre en la base (triggers `SECURITY DEFINER` en el esquema `private`, con `search_path` fijo) porque quien dispara una regla puede no tener acceso al tablero de destino; solo ejecuta reglas guardadas y validadas. Las cadenas circulares se cortan solas.
 - El historial (`task_events`) y los vínculos (`task_links`) son de solo lectura para los usuarios: los escribe únicamente el motor.
 - Las funciones `SECURITY DEFINER` son mínimas, viven en el esquema `private` (no expuesto) salvo `respond_to_invitation`, y tienen `search_path` fijo. Cada una está justificada en la migración.
-- `supabase/tests/rls_test.sql` (50 pruebas de permisos) `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) `supabase/tests/rules_test.sql` (29 pruebas del motor de reglas por fechas, condiciones y avisos) y `supabase/tests/access_test.sql` (22 pruebas de acceso por tablero, cuentas desactivadas y alta de empresas) se ejecutan dentro de una transacción que se revierte.
+- `supabase/tests/rls_test.sql` (50 pruebas de permisos) `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) `supabase/tests/rules_test.sql` (29 pruebas del motor de reglas por fechas, condiciones y avisos) `supabase/tests/access_test.sql` (22 pruebas de acceso por tablero, cuentas desactivadas y alta de empresas) y `supabase/tests/columns_test.sql` (13 pruebas de tipos de columna, colores y ajustes) se ejecutan dentro de una transacción que se revierte.
 
 ## Puesta en marcha local
 
@@ -77,6 +81,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/flows_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rules_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/access_test.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/columns_test.sql
 ```
 
 ## Cuentas y contraseñas

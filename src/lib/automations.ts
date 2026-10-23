@@ -144,7 +144,7 @@ export type ActionConfig = {
   user_id?: string;
   days?: number;
   column_id?: string;
-  value?: string | number | boolean;
+  value?: string | number | boolean | string[];
   to?: "assignee" | "creator" | "user" | "admins";
   message?: string;
   text?: string;

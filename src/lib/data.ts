@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
 import type { WorkspaceRole } from "@/lib/constants";
 import { displayName } from "@/lib/format";
-import { parseColumn, type BoardColumn } from "@/lib/columns";
+import { COMPUTED_KINDS, parseColumn, type BoardColumn } from "@/lib/columns";
 
 /*
  * Capa de acceso a datos. Todas las consultas usan la sesión del usuario, así
@@ -201,7 +201,11 @@ export async function getWorkspaceFlow(workspaceId: string, userId: string): Pro
       canManage: admin || b.created_by === userId,
       groups: (groups.data ?? []).filter((g) => g.board_id === b.id),
       statuses: (statuses.data ?? []).filter((s) => s.board_id === b.id),
-      columns: (columns.data ?? []).filter((c) => c.board_id === b.id).map(parseColumn),
+      // Las reglas solo trabajan con columnas que guardan valores (no fórmulas ni registros).
+      columns: (columns.data ?? [])
+        .filter((c) => c.board_id === b.id)
+        .map(parseColumn)
+        .filter((c) => !COMPUTED_KINDS.includes(c.kind)),
     })),
   };
 }
