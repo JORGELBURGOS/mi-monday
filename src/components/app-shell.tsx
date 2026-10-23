@@ -11,6 +11,7 @@ import {
   IconBoard,
   IconChevronDown,
   IconChevronRight,
+  IconChart,
   IconFlow,
   IconHome,
   IconLock,
@@ -340,6 +341,16 @@ function WorkspaceNode({
               className="flex-1 text-muted"
             >
               Nuevo tablero
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              href={`/e/${workspace.id}/dashboard`}
+              active={pathname === `/e/${workspace.id}/dashboard`}
+              icon={<IconChart size={15} />}
+              className="text-muted"
+            >
+              Dashboard
             </NavLink>
           </li>
           <li>

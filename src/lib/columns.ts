@@ -33,6 +33,12 @@ export const COLUMN_KINDS = [
   "item_id",
   "created_log",
   "updated_log",
+  "files",
+  "people",
+  "checklist",
+  "dependency",
+  "connect",
+  "mirror",
 ] as const;
 export type ColumnKind = (typeof COLUMN_KINDS)[number];
 
@@ -55,6 +61,12 @@ export const COLUMN_KIND_LABELS: Record<ColumnKind, string> = {
   item_id: "ID del elemento",
   created_log: "Registro de creación",
   updated_log: "Última actualización",
+  files: "Archivos",
+  people: "Personas (varias)",
+  checklist: "Checklist",
+  dependency: "Depende de",
+  connect: "Conectar tableros",
+  mirror: "Espejo",
 };
 
 export const COLUMN_KIND_HELP: Record<ColumnKind, string> = {
@@ -76,10 +88,18 @@ export const COLUMN_KIND_HELP: Record<ColumnKind, string> = {
   item_id: "Un código único de cada elemento (solo lectura).",
   created_log: "Quién creó el elemento y cuándo (solo lectura).",
   updated_log: "Cuándo se modificó por última vez (solo lectura).",
+  files: "Adjuntá documentos, fotos y planillas a cada elemento.",
+  people: "Una o varias personas responsables.",
+  checklist: "Lista de pasos a tildar, con el porcentaje de avance.",
+  dependency: "Elementos de este tablero que tienen que terminarse antes.",
+  connect: "Vinculá elementos de otro tablero de la empresa.",
+  mirror: "Muestra un dato de los elementos conectados (estado, fecha, número…).",
 };
 
 /** Tipos que se calculan y no se editan. */
-export const COMPUTED_KINDS: readonly ColumnKind[] = ["formula", "item_id", "created_log", "updated_log"];
+export const COMPUTED_KINDS: readonly ColumnKind[] = ["formula", "item_id", "created_log", "updated_log", "mirror"];
+/** Tipos que las reglas automáticas no completan ni comparan. */
+export const NON_RULE_KINDS: readonly ColumnKind[] = [...COMPUTED_KINDS, "files", "checklist", "dependency", "connect", "people"];
 /** Tipos con etiquetas de colores. */
 export const LABEL_KINDS: readonly ColumnKind[] = ["list", "tags"];
 /** Cambios de tipo permitidos (guardan el mismo valor). */
@@ -121,6 +141,12 @@ export type ColumnSettings = {
   description?: string;
   /** Oculta la columna en la tabla (sigue visible en el detalle). */
   hidden?: boolean;
+  /** Conectar tableros: tablero vinculado. */
+  boardId?: string;
+  /** Espejo: columna "Conectar tableros" de este tablero que usa. */
+  connectColumnId?: string;
+  /** Espejo: qué dato mostrar de los elementos conectados (status, due, c:<id>…). */
+  mirrorKey?: string;
 };
 
 export const columnSettingsSchema = z
@@ -133,6 +159,9 @@ export const columnSettingsSchema = z
     max: z.number().int().min(3).max(10).optional(),
     description: z.string().trim().max(300, { message: "La descripción puede tener hasta 300 caracteres." }).optional(),
     hidden: z.boolean().optional(),
+    boardId: z.uuid().optional(),
+    connectColumnId: z.uuid().optional(),
+    mirrorKey: z.string().max(40).optional(),
   })
   .strip();
 
@@ -142,7 +171,23 @@ export type BoardColumn = Omit<Tables<"board_columns">, "kind" | "options" | "se
   settings: ColumnSettings;
 };
 
-export type CellValue = string | number | boolean | string[];
+export type FileRef = { id: string; name: string; path: string; size: number; type: string };
+export type CheckItem = { id: string; text: string; done: boolean };
+export type CellValue = string | number | boolean | string[] | FileRef[] | CheckItem[];
+
+export function isFileList(v: unknown): v is FileRef[] {
+  return Array.isArray(v) && v.every((x) => x && typeof x === "object" && typeof (x as FileRef).path === "string" && typeof (x as FileRef).name === "string");
+}
+export function isChecklist(v: unknown): v is CheckItem[] {
+  return Array.isArray(v) && v.every((x) => x && typeof x === "object" && typeof (x as CheckItem).text === "string" && typeof (x as CheckItem).done === "boolean");
+}
+export function stringList(v: CellValue | undefined): string[] {
+  return Array.isArray(v) ? (v as unknown[]).filter((x): x is string => typeof x === "string") : [];
+}
+export function checklistProgress(v: CellValue | undefined): { done: number; total: number } {
+  const list = isChecklist(v) ? v : [];
+  return { done: list.filter((i) => i.done).length, total: list.length };
+}
 export type CustomValues = Record<string, CellValue>;
 
 export function parseColumn(row: Tables<"board_columns">): BoardColumn {
@@ -173,7 +218,12 @@ export function readValues(json: Json | null | undefined): CustomValues {
   const out: CustomValues = {};
   for (const [k, v] of Object.entries(json)) {
     if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") out[k] = v;
-    else if (Array.isArray(v)) out[k] = v.filter((x): x is string => typeof x === "string");
+    else if (Array.isArray(v)) {
+      if (v.length && v.every((x) => x && typeof x === "object")) {
+        if (isFileList(v)) out[k] = v.map((f) => ({ id: String(f.id ?? f.path), name: String(f.name), path: String(f.path), size: Number(f.size) || 0, type: String(f.type ?? "") }));
+        else if (isChecklist(v)) out[k] = v.map((i) => ({ id: String(i.id ?? ""), text: String(i.text), done: Boolean(i.done) }));
+      } else out[k] = v.filter((x): x is string => typeof x === "string");
+    }
   }
   return out;
 }
@@ -201,8 +251,11 @@ export function normalizeValue(
   column: Pick<BoardColumn, "kind" | "options" | "settings">,
   raw: unknown,
   memberIds?: Set<string>,
+  /** Para archivos: prefijo obligatorio de la ruta (empresa/tablero/elemento/). */
+  filePrefix?: string,
 ): { ok: true; value: CellValue | null } | { ok: false; error: string } {
   if (raw === null || raw === undefined || raw === "") return { ok: true, value: null };
+  if (Array.isArray(raw) && raw.length === 0) return { ok: true, value: null };
   switch (column.kind) {
     case "text":
     case "long_text": {
@@ -274,6 +327,36 @@ export function normalizeValue(
     }
     case "checkbox":
       return { ok: true, value: raw === true || raw === "true" || raw === "on" ? true : null };
+    case "people":
+    case "dependency":
+    case "connect": {
+      const list = [...new Set((Array.isArray(raw) ? raw : [raw]).map(String))];
+      if (list.length > 50) return { ok: false, error: "Hasta 50 elementos." };
+      if (list.some((id) => !z.uuid().safeParse(id).success)) return { ok: false, error: "Valor inválido." };
+      if (column.kind === "people" && memberIds && list.some((id) => !memberIds.has(id))) {
+        return { ok: false, error: "Las personas tienen que ser usuarios de la empresa." };
+      }
+      return { ok: true, value: list };
+    }
+    case "checklist": {
+      if (!isChecklist(raw)) return { ok: false, error: "Checklist inválido." };
+      if (raw.length > 100) return { ok: false, error: "Hasta 100 pasos." };
+      const items = raw.map((i) => ({ id: String(i.id || newOptionId()).slice(0, 40), text: String(i.text).trim().slice(0, 200), done: Boolean(i.done) })).filter((i) => i.text);
+      return { ok: true, value: items.length ? items : null };
+    }
+    case "files": {
+      if (!isFileList(raw)) return { ok: false, error: "Archivos inválidos." };
+      if (raw.length > 50) return { ok: false, error: "Hasta 50 archivos por elemento." };
+      if (filePrefix && raw.some((f) => !f.path.startsWith(filePrefix) || f.path.includes(".."))) return { ok: false, error: "Archivo inválido." };
+      const files = raw.map((f) => ({
+        id: String(f.id || f.path).slice(0, 300),
+        name: String(f.name).slice(0, 200),
+        path: String(f.path).slice(0, 500),
+        size: Math.max(0, Number(f.size) || 0),
+        type: String(f.type ?? "").slice(0, 100),
+      }));
+      return { ok: true, value: files };
+    }
     default:
       return { ok: false, error: "Esta columna se calcula sola y no se puede editar." };
   }
@@ -373,7 +456,24 @@ export function valueLabel(
       const t = parseTimeline(value);
       return t ? `${t.start} → ${t.end}` : "";
     }
+    case "people":
+      return stringList(value)
+        .map((id) => {
+          const m = members.find((x) => x.user_id === id);
+          return m ? m.full_name?.trim() || m.email || "" : "";
+        })
+        .filter(Boolean)
+        .join(", ");
+    case "files":
+      return isFileList(value) ? value.map((f) => f.name).join(", ") : "";
+    case "checklist": {
+      const p = checklistProgress(value);
+      return p.total ? `${p.done}/${p.total}` : "";
+    }
+    case "dependency":
+    case "connect":
+      return stringList(value).length ? `${stringList(value).length} vinculados` : "";
     default:
-      return Array.isArray(value) ? value.join(", ") : String(value);
+      return Array.isArray(value) ? stringList(value).join(", ") : String(value);
   }
 }

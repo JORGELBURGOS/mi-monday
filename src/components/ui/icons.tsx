@@ -152,3 +152,15 @@ export function Wordmark({ name, className }: { name: string; className?: string
     </span>
   );
 }
+export const IconPaperclip = (p: IconProps) => (
+  <svg {...base(p)}><path d="m20 11.5-8.2 8.2a5 5 0 0 1-7.1-7.1l8.6-8.6a3.4 3.4 0 0 1 4.8 4.8l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9" /></svg>
+);
+export const IconLink = (p: IconProps) => (
+  <svg {...base(p)}><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
+);
+export const IconGantt = (p: IconProps) => (
+  <svg {...base(p)}><path d="M4 6h8M8 12h10M6 18h7" /><path d="M3 3v18" /></svg>
+);
+export const IconChart = (p: IconProps) => (
+  <svg {...base(p)}><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" /></svg>
+);

@@ -5,7 +5,8 @@ import { cn } from "@/lib/cn";
 import { displayName, relativeTime, formatDateTime } from "@/lib/format";
 import { PopoverButton } from "@/components/ui/popover";
 import { IconAlert, IconEdit } from "@/components/ui/icons";
-import { formatNumber, parseTimeline, shortDate, type BoardColumn, type CellValue } from "@/lib/columns";
+import { formatNumber, parseTimeline, shortDate, stringList, type BoardColumn, type CellValue } from "@/lib/columns";
+import { ChecklistCell, FilesCell, LinkItemsCell, PeopleCell } from "./rich-cells";
 import type { FormulaResult } from "@/lib/formula";
 import { LabelCell, type LabelEditing } from "./label-picker";
 import type { Member } from "./types";
@@ -21,13 +22,15 @@ type Props = {
   id?: string;
   /** Si se indica, las etiquetas de la columna se pueden editar desde la celda. */
   labelEditing?: LabelEditing;
+  /** Elemento al que pertenece el valor (archivos y dependencias). */
+  taskId?: string;
 };
 
 /**
  * Editor de un valor de columna propia. "cell" es compacto para la tabla;
  * "field" ocupa todo el ancho (detalle del ítem y editor de reglas).
  */
-export function CustomValueInput({ column, value, members, onChange, label, disabled, variant = "cell", id, labelEditing }: Props) {
+export function CustomValueInput({ column, value, members, onChange, label, disabled, variant = "cell", id, labelEditing, taskId = "" }: Props) {
   const cell = variant === "cell";
   const base = cell
     ? "h-8 w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 text-[13px] hover:border-line hover:bg-surface focus:bg-surface disabled:opacity-60"
@@ -39,7 +42,7 @@ export function CustomValueInput({ column, value, members, onChange, label, disa
       return (
         <LabelCell
           labels={column.options}
-          value={column.kind === "tags" ? (Array.isArray(value) ? value : []) : typeof value === "string" ? value : null}
+          value={column.kind === "tags" ? stringList(value) : typeof value === "string" ? value : null}
           multi={column.kind === "tags"}
           onChange={(v) => onChange(v)}
           label={label}
@@ -138,6 +141,15 @@ export function CustomValueInput({ column, value, members, onChange, label, disa
         </select>
       );
     }
+    case "files":
+      return <FilesCell value={value} taskId={taskId} label={label} disabled={disabled} cell={cell} onChange={onChange} />;
+    case "people":
+      return <PeopleCell value={value} members={members} label={label} disabled={disabled} cell={cell} onChange={onChange} />;
+    case "checklist":
+      return <ChecklistCell value={value} label={label} disabled={disabled} cell={cell} onChange={onChange} />;
+    case "dependency":
+    case "connect":
+      return <LinkItemsCell column={column} value={value} taskId={taskId} label={label} disabled={disabled} cell={cell} onChange={onChange} />;
     case "link":
     case "email":
     case "phone":

@@ -20,7 +20,10 @@ import {
   IconSearch,
   IconSettings,
   IconTrash,
+  IconLink,
+  IconPaperclip,
   IconUser,
+  IconUsers,
   IconX,
 } from "@/components/ui/icons";
 import {
@@ -69,6 +72,12 @@ const KIND_WIDTH: Record<ColumnKind, number> = {
   item_id: 110,
   created_log: 160,
   updated_log: 130,
+  files: 150,
+  people: 160,
+  checklist: 140,
+  dependency: 170,
+  connect: 190,
+  mirror: 160,
 };
 
 export function buildColumnDefs(settings: BoardSettings, columns: BoardColumn[], order: ColumnKey[]): ColumnDef[] {
@@ -102,6 +111,12 @@ const KIND_GLYPH: Partial<Record<ColumnKind, string>> = {
   item_id: "ID",
   created_log: "+",
   updated_log: "↻",
+  files: "",
+  people: "",
+  checklist: "☑",
+  dependency: "⇢",
+  connect: "⇄",
+  mirror: "◐",
 };
 const KIND_COLOR: Record<ColumnKind, string> = {
   list: "solid-green",
@@ -122,18 +137,36 @@ const KIND_COLOR: Record<ColumnKind, string> = {
   item_id: "solid-gray",
   created_log: "solid-gray",
   updated_log: "solid-gray",
+  files: "solid-rose",
+  people: "solid-sky",
+  checklist: "solid-lime",
+  dependency: "solid-purple",
+  connect: "solid-indigo",
+  mirror: "solid-indigo",
 };
 
 export function KindIcon({ kind, className }: { kind: ColumnKind; className?: string }) {
   return (
     <span aria-hidden className={cn(KIND_COLOR[kind], "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-bold", className)}>
-      {kind === "date" ? <IconCalendar size={13} /> : kind === "person" ? <IconUser size={13} /> : KIND_GLYPH[kind]}
+      {kind === "date" ? (
+        <IconCalendar size={13} />
+      ) : kind === "person" ? (
+        <IconUser size={13} />
+      ) : kind === "people" ? (
+        <IconUsers size={13} />
+      ) : kind === "files" ? (
+        <IconPaperclip size={13} />
+      ) : kind === "connect" ? (
+        <IconLink size={13} />
+      ) : (
+        KIND_GLYPH[kind]
+      )}
     </span>
   );
 }
 
 const ESSENTIAL: ColumnKind[] = ["list", "text", "person", "date", "number", "tags", "timeline", "checkbox", "formula"];
-const MORE: ColumnKind[] = ["long_text", "rating", "link", "email", "phone", "hour", "item_id", "created_log", "updated_log"];
+const MORE: ColumnKind[] = ["files", "people", "checklist", "dependency", "connect", "mirror", "long_text", "rating", "link", "email", "phone", "hour", "item_id", "created_log", "updated_log"];
 
 /** El "+" al final de los encabezados: elegir el tipo de la columna nueva. */
 export function AddColumnButton({ onAdd, compact }: { onAdd: (kind: ColumnKind) => void; compact?: boolean }) {
@@ -353,6 +386,8 @@ export function ColumnSettingsDialog({
   def,
   settings,
   allColumns,
+  workspaceBoards = [],
+  linkedBoards = [],
   labelEditing,
   preview,
   onClose,
@@ -362,6 +397,8 @@ export function ColumnSettingsDialog({
   def: ColumnDef;
   settings: BoardSettings;
   allColumns: BoardColumn[];
+  workspaceBoards?: { id: string; name: string }[];
+  linkedBoards?: { id: string; name: string; columns: BoardColumn[] }[];
   labelEditing?: LabelEditing & { labels: Label[] };
   /** Evalúa una fórmula sobre algunos elementos del tablero. */
   preview: (formula: string) => { title: string; result: FormulaResult }[];
@@ -474,6 +511,29 @@ export function ColumnSettingsDialog({
               </Select>
             </Field>
           </fieldset>
+        )}
+
+        {col?.kind === "connect" && (
+          <Field id="col-board" label="Tablero a conectar" hint="Elementos de ese tablero se van a poder vincular desde esta columna">
+            <Select id="col-board" value={s.boardId ?? ""} onChange={(e) => set({ boardId: e.target.value || undefined })}>
+              <option value="">Elegí un tablero…</option>
+              {workspaceBoards.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
+        {col?.kind === "mirror" && (
+          <MirrorSettings
+            value={s}
+            onChange={set}
+            connectColumns={allColumns.filter((c) => c.kind === "connect")}
+            linkedBoards={linkedBoards}
+            workspaceBoards={workspaceBoards}
+          />
         )}
 
         {col?.kind === "rating" && (
@@ -636,5 +696,55 @@ function FormulaEditor({
         )}
       </div>
     </section>
+  );
+}
+
+function MirrorSettings({
+  value,
+  onChange,
+  connectColumns,
+  linkedBoards,
+  workspaceBoards,
+}: {
+  value: ColumnSettings;
+  onChange: (p: Partial<ColumnSettings>) => void;
+  connectColumns: BoardColumn[];
+  linkedBoards: { id: string; name: string; columns: BoardColumn[] }[];
+  workspaceBoards: { id: string; name: string }[];
+}) {
+  const connect = connectColumns.find((c) => c.id === value.connectColumnId);
+  const board = linkedBoards.find((b) => b.id === connect?.settings.boardId);
+  if (connectColumns.length === 0) {
+    return <FormAlert tone="info">Primero agregá una columna “Conectar tableros”: el espejo muestra datos de los elementos que vincula.</FormAlert>;
+  }
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field id="mir-conn" label="Columna de conexión">
+        <Select id="mir-conn" value={value.connectColumnId ?? ""} onChange={(e) => onChange({ connectColumnId: e.target.value || undefined })}>
+          <option value="">Elegí…</option>
+          {connectColumns.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} ({workspaceBoards.find((b) => b.id === c.settings.boardId)?.name ?? "sin tablero"})
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field id="mir-key" label="Dato a mostrar">
+        <Select id="mir-key" value={value.mirrorKey ?? "status"} onChange={(e) => onChange({ mirrorKey: e.target.value })}>
+          <option value="status">Estado</option>
+          <option value="title">Nombre del elemento</option>
+          <option value="due">Vencimiento</option>
+          <option value="assignee">Responsable</option>
+          {(board?.columns ?? [])
+            .filter((c) => !["mirror", "files", "checklist", "connect", "dependency"].includes(c.kind))
+            .map((c) => (
+              <option key={c.id} value={`c:${c.id}`}>
+                {c.name}
+              </option>
+            ))}
+        </Select>
+      </Field>
+      {connect && !board && <p className="text-xs text-muted sm:col-span-2">Guardá y volvé a abrir para ver también las columnas propias del tablero conectado.</p>}
+    </div>
   );
 }

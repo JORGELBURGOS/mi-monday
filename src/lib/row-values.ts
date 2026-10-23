@@ -1,5 +1,5 @@
 import { FormulaError, runFormula, type FValue, type FormulaResult } from "@/lib/formula";
-import { readValues, parseTimeline, type BoardColumn, type CellValue } from "@/lib/columns";
+import { checklistProgress, isFileList, readValues, parseTimeline, stringList, type BoardColumn, type CellValue } from "@/lib/columns";
 import { BUILTIN_DEFAULT_LABELS, builtinLabel, priorityLabel, type BoardSettings } from "@/lib/board-settings";
 import type { Group, Member, Status, Task } from "@/lib/data";
 
@@ -66,6 +66,24 @@ function columnFormulaValue(task: Task, col: BoardColumn, env: RowEnv, part: str
         .join(", ");
     case "person":
       return personName(env.members, typeof v === "string" ? v : null);
+    case "people":
+      return stringList(v)
+        .map((id) => personName(env.members, id))
+        .filter(Boolean)
+        .join(", ");
+    case "checklist": {
+      // Porcentaje de pasos tildados (0 a 100).
+      const p = checklistProgress(v);
+      return p.total ? Math.round((p.done / p.total) * 100) : 0;
+    }
+    case "files":
+      return isFileList(v) ? v.length : 0;
+    case "dependency":
+      return stringList(v).length;
+    case "connect":
+      return stringList(v).length;
+    case "mirror":
+      return "";
     case "timeline": {
       const t = parseTimeline(v);
       if (!t) return "";
@@ -74,7 +92,7 @@ function columnFormulaValue(task: Task, col: BoardColumn, env: RowEnv, part: str
       return `${t.start} - ${t.end}`;
     }
     default:
-      return v === undefined ? "" : Array.isArray(v) ? v.join(", ") : (v as FValue);
+      return v === undefined ? "" : Array.isArray(v) ? stringList(v).join(", ") : (v as FValue);
   }
 }
 
@@ -137,12 +155,24 @@ export function sortableValue(task: Task, col: BoardColumn, env: RowEnv): string
       return Array.isArray(v) && v.length ? (col.options.find((o) => o.id === v[0])?.label ?? null) : null;
     case "person":
       return personName(env.members, typeof v === "string" ? v : null) || null;
+    case "people":
+      return stringList(v).map((id) => personName(env.members, id)).join(", ") || null;
+    case "checklist": {
+      const p = checklistProgress(v);
+      return p.total ? p.done / p.total : null;
+    }
+    case "files":
+    case "dependency":
+    case "connect":
+      return Array.isArray(v) && v.length ? v.length : null;
+    case "mirror":
+      return null;
     case "checkbox":
       return v === true ? 1 : 0;
     case "timeline":
       return parseTimeline(v)?.start ?? null;
     default:
       if (v === undefined || v === "") return null;
-      return typeof v === "number" ? v : Array.isArray(v) ? v.join(", ") : String(v);
+      return typeof v === "number" ? v : Array.isArray(v) ? stringList(v).join(", ") : String(v);
   }
 }

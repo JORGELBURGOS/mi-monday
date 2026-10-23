@@ -1,5 +1,7 @@
 "use server";
 
+type RuleValue = string | number | boolean | string[];
+
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { actionContext, SESSION_EXPIRED } from "./context";
@@ -184,7 +186,7 @@ async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
         const res = normalizeValue(col, ac.value, col.kind === "person" ? await memberIdsOf(ctx, boardId) : undefined);
         if (!res.ok) return { error: `${col.name}: ${res.error}` } as const;
         if (res.value === null) return { error: "Indicá el valor para la columna (o elegí vaciarla)." } as const;
-        d.action_config = { column_id: col.id, mode: "value", value: res.value };
+        d.action_config = { column_id: col.id, mode: "value", value: res.value as RuleValue };
       }
       break;
     }
@@ -234,7 +236,7 @@ async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
       if (!res.ok) return { error: `${col.name}: ${res.error}` } as const;
       if (res.value !== null) clean[col.id] = res.value;
     }
-    d.extra_values = clean;
+    d.extra_values = clean as Record<string, RuleValue>;
   }
   // Sin columnas repetidas en el destino.
   const seen = new Set<string>();

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
 import type { WorkspaceRole } from "@/lib/constants";
 import { displayName } from "@/lib/format";
-import { COMPUTED_KINDS, parseColumn, type BoardColumn } from "@/lib/columns";
+import { NON_RULE_KINDS, parseColumn, type BoardColumn } from "@/lib/columns";
 
 /*
  * Capa de acceso a datos. Todas las consultas usan la sesión del usuario, así
@@ -133,6 +133,11 @@ export type BoardData = {
   tasks: Task[];
   members: Member[];
   columns: BoardColumn[];
+  /** Tableros de la empresa (para configurar "Conectar tableros"). */
+  workspaceBoards: { id: string; name: string }[];
+  /** Tableros conectados por columnas "Conectar tableros", con sus elementos. */
+  linkedBoards: { id: string; name: string; statuses: Status[]; columns: BoardColumn[] }[];
+  linkedItems: Pick<Task, "id" | "title" | "board_id" | "status_id" | "due_date" | "priority" | "assignee_id" | "custom_values">[];
 };
 
 export async function getBoardData(boardId: string, userId: string): Promise<BoardData | null> {
@@ -152,6 +157,20 @@ export async function getBoardData(boardId: string, userId: string): Promise<Boa
   if (statuses.error || groups.error || tasks.error || columns.error) throw new Error("No se pudo cargar el tablero.");
 
   const canManage = board.created_by === userId || workspace.role === "owner" || workspace.role === "admin";
+  const parsedColumns = (columns.data ?? []).map(parseColumn);
+
+  // Conectar tableros: se cargan los tableros vinculados que la persona puede ver (RLS).
+  const linkedIds = [...new Set(parsedColumns.filter((c) => c.kind === "connect" && c.settings.boardId).map((c) => c.settings.boardId!))];
+  const [wsBoards, lBoards, lStatuses, lColumns, lItems] = await Promise.all([
+    supabase.from("boards").select("id, name").eq("workspace_id", board.workspace_id).eq("is_archived", false).order("name"),
+    linkedIds.length ? supabase.from("boards").select("id, name").in("id", linkedIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    linkedIds.length ? supabase.from("board_statuses").select("*").in("board_id", linkedIds).order("position") : Promise.resolve({ data: [] as Status[] }),
+    linkedIds.length ? supabase.from("board_columns").select("*").in("board_id", linkedIds).order("position") : Promise.resolve({ data: [] }),
+    linkedIds.length
+      ? supabase.from("tasks").select("id, title, board_id, status_id, due_date, priority, assignee_id, custom_values").in("board_id", linkedIds).is("parent_id", null).order("position").limit(3000)
+      : Promise.resolve({ data: [] }),
+  ]);
+
   return {
     board,
     workspace,
@@ -160,7 +179,14 @@ export async function getBoardData(boardId: string, userId: string): Promise<Boa
     groups: groups.data ?? [],
     tasks: tasks.data ?? [],
     members,
-    columns: (columns.data ?? []).map(parseColumn),
+    columns: parsedColumns,
+    workspaceBoards: wsBoards.data ?? [],
+    linkedBoards: (lBoards.data ?? []).map((b) => ({
+      ...b,
+      statuses: (lStatuses.data ?? []).filter((x) => x.board_id === b.id),
+      columns: ((lColumns.data ?? []) as Parameters<typeof parseColumn>[0][]).filter((x) => x.board_id === b.id).map(parseColumn),
+    })),
+    linkedItems: (lItems.data ?? []) as BoardData["linkedItems"],
   };
 }
 
@@ -218,7 +244,7 @@ export async function getWorkspaceFlow(workspaceId: string, userId: string): Pro
       columns: (columns.data ?? [])
         .filter((c) => c.board_id === b.id)
         .map(parseColumn)
-        .filter((c) => !COMPUTED_KINDS.includes(c.kind)),
+        .filter((c) => !NON_RULE_KINDS.includes(c.kind)),
     })),
   };
 }

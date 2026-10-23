@@ -25,6 +25,7 @@ import { LabelCell } from "./label-picker";
 import type { LabelEditors } from "./group-section";
 import { cn } from "@/lib/cn";
 import { ComputedCell, CustomValueInput } from "./custom-cell";
+import { MirrorCell } from "./rich-cells";
 import { TaskTrace } from "./task-trace";
 import type { Group, Member, Status, Task } from "./types";
 
@@ -272,7 +273,12 @@ export function TaskDialog({
             </Select>
           </Field>
           {columns.map((c) =>
-            COMPUTED_KINDS.includes(c.kind) ? (
+            c.kind === "mirror" ? (
+              <div key={c.id}>
+                <p className="mb-1.5 text-sm font-semibold">{c.name}</p>
+                <MirrorCell column={c} task={task} columns={columns} members={members} cell={false} />
+              </div>
+            ) : COMPUTED_KINDS.includes(c.kind) ? (
               <div key={c.id}>
                 <p className="mb-1.5 text-sm font-semibold">{c.name}</p>
                 <ComputedCell
@@ -299,7 +305,12 @@ export function TaskDialog({
                   disabled={readOnly}
                   label={c.name}
                   labelEditing={labelEditors.column(c)}
-                  onChange={(v) => setValues((prev) => ({ ...prev, [c.id]: v }))}
+                  taskId={task.id}
+                  onChange={(v) => {
+                    setValues((prev) => ({ ...prev, [c.id]: v }));
+                    // Los archivos ya están subidos: se guardan en el momento para no perderlos.
+                    if (c.kind === "files") void setCustomValuesAction(task.id, { [c.id]: v });
+                  }}
                 />
               </Field>
             ),

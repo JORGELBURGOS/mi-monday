@@ -5,7 +5,7 @@ import { useCallback, useMemo, useOptimistic, useRef, useState, useSyncExternalS
 import { createTaskAction, deleteTaskAction, deleteTasksAction, duplicateTaskAction, duplicateTasksAction, moveTaskAction, moveTasksAction, updateTaskAction, updateTasksAction } from "@/app/actions/tasks";
 import { createGroupAction, deleteGroupAction, saveStatusesAction, updateBoardSettingsAction, updateGroupAction } from "@/app/actions/boards";
 import { createColumnAction, deleteColumnAction, duplicateColumnAction, setCustomValuesAction, updateColumnAction } from "@/app/actions/columns";
-import { COLUMN_KIND_LABELS, LABEL_KINDS, defaultLabels, readValues, valueLabel, type BoardColumn, type ColumnKind, type ColumnSettings } from "@/lib/columns";
+import { COLUMN_KIND_LABELS, LABEL_KINDS, defaultLabels, readValues, stringList, valueLabel, type BoardColumn, type ColumnKind, type ColumnSettings } from "@/lib/columns";
 import { builtinLabel, orderedKeys, priorityLabels, type BoardSettings, type ColumnKey } from "@/lib/board-settings";
 import { formulaValue, sortableValue, type RowEnv } from "@/lib/row-values";
 import type { ActionResult } from "@/lib/action-result";
@@ -18,13 +18,15 @@ import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/form";
 import { EmptyState } from "@/components/ui/misc";
 import { Menu, type MenuItem } from "@/components/ui/menu";
-import { IconCalendar, IconColumns, IconCopy, IconFilter, IconMove, IconPlus, IconSearch, IconTable, IconTrash, IconX } from "@/components/ui/icons";
+import { IconCalendar, IconColumns, IconCopy, IconGantt, IconFilter, IconMove, IconPlus, IconSearch, IconTable, IconTrash, IconX } from "@/components/ui/icons";
 import { GroupSection, type GroupHandlers, type LabelEditors } from "./group-section";
 import { CalendarView } from "./calendar-view";
+import { GanttView } from "./gantt-view";
 import { KanbanView } from "./kanban-view";
 import { TaskDialog } from "./task-dialog";
 import { AddColumnButton, ColumnSettingsDialog, ColumnsVisibility, buildColumnDefs, type ColumnDef, type HeaderHandlers } from "./columns-ui";
 import type { Label } from "./label-picker";
+import { CellContext, type CellCtx, type LinkedBoard, type LinkedItem } from "./cell-context";
 import { groupReducer, positionAt, taskReducer } from "./logic";
 import type { Group, GroupChange, Member, Status, Task, TaskChange } from "./types";
 
@@ -35,7 +37,7 @@ const nowLocal = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-type View = "tabla" | "kanban" | "calendario";
+type View = "tabla" | "kanban" | "calendario" | "gantt";
 type Filters = { search: string; status: string; priority: "all" | Priority; assignee: string; column: string };
 const EMPTY_FILTERS: Filters = { search: "", status: "all", priority: "all", assignee: "all", column: "" };
 type Sort = { key: string; dir: "asc" | "desc" } | null;
@@ -44,6 +46,10 @@ const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").to
 
 export function BoardView({
   boardId,
+  workspaceId,
+  workspaceBoards,
+  linkedBoards,
+  linkedItems,
   boardName,
   view,
   statuses,
@@ -58,6 +64,10 @@ export function BoardView({
   initialTaskId,
 }: {
   boardId: string;
+  workspaceId: string;
+  workspaceBoards: { id: string; name: string }[];
+  linkedBoards: LinkedBoard[];
+  linkedItems: LinkedItem[];
   boardName: string;
   view: View;
   statuses: Status[];
@@ -149,7 +159,7 @@ export function BoardView({
           if (v !== undefined && !(Array.isArray(v) && v.length === 0)) return false;
         } else if (val === "__true") {
           if (v !== true) return false;
-        } else if (Array.isArray(v) ? !v.includes(val) : v !== val) return false;
+        } else if (Array.isArray(v) ? !stringList(v).includes(val) : v !== val) return false;
       }
       return true;
     },
@@ -376,7 +386,7 @@ export function BoardView({
             doneToggle: c.kind === "list",
             usage: usageOf((t) => {
               const v = readValues(t.custom_values)[c.id];
-              return typeof v === "string" || Array.isArray(v) ? v : null;
+              return typeof v === "string" ? v : Array.isArray(v) ? stringList(v) : null;
             }),
             onSave: async (labels: Label[]) => {
               const res = await updateColumnAction(c.id, { options: labels.map((l) => ({ id: l.id, label: l.label, color: l.color, ...(l.done ? { done: true } : {}) })) });
@@ -451,6 +461,18 @@ export function BoardView({
     [settingsDef, optimisticTasks, env],
   );
 
+  const cellCtx: CellCtx = useMemo(
+    () => ({
+      workspaceId,
+      boardId,
+      tasks: optimisticTasks,
+      doneIds,
+      linkedItems: new Map(linkedItems.map((i) => [i.id, i])),
+      linkedBoards: new Map(linkedBoards.map((b) => [b.id, b])),
+    }),
+    [workspaceId, boardId, optimisticTasks, doneIds, linkedItems, linkedBoards],
+  );
+
   const labelFilterOptions = optColumns.filter((c) => c.kind === "list" || c.kind === "tags" || c.kind === "checkbox" || c.kind === "person");
   const openTask = optimisticTasks.find((t) => t.id === openTaskId) ?? null;
   const statusLabel = builtinLabel(optSettings, "status");
@@ -458,6 +480,7 @@ export function BoardView({
   const assigneeLabel = builtinLabel(optSettings, "assignee");
 
   return (
+    <CellContext.Provider value={cellCtx}>
     <div className={cn(selectedIds.length > 0 && "pb-24")}>
       {/* Barra de herramientas */}
       <div className="sticky top-14 z-20 -mx-4 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 lg:top-0">
@@ -471,6 +494,9 @@ export function BoardView({
             </ViewTab>
             <ViewTab href={`/t/${boardId}?vista=calendario`} active={view === "calendario"} icon={<IconCalendar size={16} />}>
               Calendario
+            </ViewTab>
+            <ViewTab href={`/t/${boardId}?vista=gantt`} active={view === "gantt"} icon={<IconGantt size={16} />}>
+              Gantt
             </ViewTab>
           </nav>
 
@@ -592,7 +618,20 @@ export function BoardView({
         </div>
       </div>
 
-      {view === "calendario" ? (
+      {view === "gantt" ? (
+        <GanttView
+          tasks={optimisticTasks.filter((t) => matches(t) || (t.parent_id ? matches(optimisticTasks.find((p) => p.id === t.parent_id) ?? t) : (childrenOf.get(t.id) ?? []).some(matches)))}
+          groups={optimisticGroups}
+          columns={optColumns}
+          statuses={statuses}
+          today={today}
+          readOnly={readOnly}
+          onOpenTask={(t) => setOpenTaskId(t.id)}
+          onChangeDates={(t, source, start, end) =>
+            source === "due" ? updateTask(t, { due_date: end }) : handlers.onSetValue(t, source, `${start}/${end}`)
+          }
+        />
+      ) : view === "calendario" ? (
         <CalendarView tasks={optimisticTasks.filter(matches)} statuses={statuses} today={today} onOpenTask={(t) => setOpenTaskId(t.id)} />
       ) : view === "kanban" ? (
         <KanbanView
@@ -711,6 +750,8 @@ export function BoardView({
           def={settingsDef}
           settings={optSettings}
           allColumns={optColumns}
+          workspaceBoards={workspaceBoards.filter((b) => b.id !== boardId)}
+          linkedBoards={linkedBoards}
           labelEditing={
             settingsDef.column && LABEL_KINDS.includes(settingsDef.column.kind)
               ? { ...labelEditors.column(settingsDef.column)!, labels: settingsDef.column.options }
@@ -832,6 +873,7 @@ export function BoardView({
         }}
       />
     </div>
+    </CellContext.Provider>
   );
 }
 

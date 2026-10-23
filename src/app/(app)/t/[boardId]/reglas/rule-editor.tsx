@@ -327,7 +327,7 @@ export function RuleEditor({
       target_status_id: chain && d.target_status && d.target_status !== "same" ? d.target_status : null,
       copy_fields: d.mode === "copy" ? [...d.copy_fields, ...(d.target_status === "same" ? (["status"] as CopyField[]) : [])] : [],
       column_map,
-      extra_values,
+      extra_values: extra_values as Record<string, string | number | boolean | string[]>,
     };
     startSaving(async () => {
       const err = await onSubmit(input);
@@ -1008,7 +1008,7 @@ function ActionDetails({
                 members={members}
                 value={ac.value ?? undefined}
                 label={`Valor para ${col.name}`}
-                onChange={(v) => setAc({ value: v ?? undefined })}
+                onChange={(v) => setAc({ value: (v ?? undefined) as string | number | boolean | string[] | undefined })}
               />
             </Field>
           )}

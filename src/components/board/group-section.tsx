@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/icons";
 import { AssigneeSelect, DueBadge, DueDateInput } from "./task-fields";
 import { ComputedCell, CustomValueInput } from "./custom-cell";
+import { MirrorCell } from "./rich-cells";
 import { LabelCell, type LabelEditing } from "./label-picker";
 import { AddColumnButton, ColumnHeader, type ColumnDef, type HeaderHandlers } from "./columns-ui";
 import { GroupSummaryRow } from "./summary";
@@ -409,6 +410,7 @@ export function Cell({ def, task, props, disabled, variant = "cell" }: { def: Co
     return <DueDateInput value={task.due_date} today={props.today} done={done} disabled={disabled} label={name} onChange={(due_date) => handlers.onUpdateTask(task, { due_date })} />;
   }
   const c = def.column!;
+  if (c.kind === "mirror") return <MirrorCell column={c} task={task} columns={props.env.columns} members={members} cell={variant === "cell"} />;
   if (COMPUTED_KINDS.includes(c.kind)) {
     const creator = members.find((m) => m.user_id === task.created_by);
     return (
@@ -432,6 +434,7 @@ export function Cell({ def, task, props, disabled, variant = "cell" }: { def: Co
       label={name}
       variant={variant}
       labelEditing={labelEditors.column(c)}
+      taskId={task.id}
       onChange={(v) => handlers.onSetValue(task, c.id, v)}
     />
   );

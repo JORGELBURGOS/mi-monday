@@ -16,6 +16,7 @@ import {
   normalizeValue,
   parseColumn,
   readValues,
+  stringList,
   type CellValue,
   type ColumnKind,
 } from "@/lib/columns";
@@ -128,7 +129,8 @@ export async function updateColumnAction(
       const v = values[column.id];
       if (Array.isArray(v)) {
         const next = { ...values } as Record<string, CellValue>;
-        if (v[0]) next[column.id] = v[0];
+        const first = stringList(v)[0];
+        if (first) next[column.id] = first;
         else delete next[column.id];
         await ctx.supabase.from("tasks").update({ custom_values: next }).eq("id", t.id);
       }
@@ -209,16 +211,31 @@ export async function setCustomValuesAction(taskId: string, values: Record<strin
   if (!columns || columns.length !== keys.length) return fail("Alguna columna ya no existe. Recargá la página.");
 
   let memberIds: Set<string> | undefined;
-  if (columns.some((c) => c.kind === "person") && board) {
+  if (columns.some((c) => c.kind === "person" || c.kind === "people") && board) {
     const { data: members } = await ctx.supabase.from("workspace_members").select("user_id").eq("workspace_id", board.workspace_id);
     memberIds = new Set((members ?? []).map((m) => m.user_id));
   }
 
+  if (columns.some((c) => c.kind === "people") && board && !memberIds) {
+    const { data: members } = await ctx.supabase.from("workspace_members").select("user_id").eq("workspace_id", board.workspace_id);
+    memberIds = new Set((members ?? []).map((m) => m.user_id));
+  }
+  const filePrefix = board ? `${board.workspace_id}/${task.board_id}/${task.id}/` : undefined;
+
   const next: Record<string, CellValue> = { ...readValues(task.custom_values) };
   for (const raw of columns) {
     const column = parseColumn(raw);
-    const res = normalizeValue(column, values[column.id], memberIds);
+    const res = normalizeValue(column, values[column.id], memberIds, filePrefix);
     if (!res.ok) return fail(`${column.name}: ${res.error}`);
+    // Los vínculos tienen que apuntar a elementos que existen (y que la persona ve).
+    if ((column.kind === "dependency" || column.kind === "connect") && Array.isArray(res.value) && res.value.length) {
+      const ids = stringList(res.value);
+      if (column.kind === "dependency" && ids.includes(task.id)) return fail(`${column.name}: un elemento no puede depender de sí mismo.`);
+      const target = column.kind === "dependency" ? task.board_id : column.settings.boardId;
+      if (!target) return fail(`${column.name}: elegí el tablero a conectar en la configuración de la columna.`);
+      const { count } = await ctx.supabase.from("tasks").select("id", { count: "exact", head: true }).eq("board_id", target).in("id", ids);
+      if ((count ?? 0) !== ids.length) return fail(`${column.name}: algún elemento vinculado ya no existe.`);
+    }
     if (res.value === null) delete next[column.id];
     else next[column.id] = res.value;
   }

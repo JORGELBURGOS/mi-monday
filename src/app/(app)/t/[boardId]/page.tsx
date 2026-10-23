@@ -32,7 +32,7 @@ export default async function BoardPage({ params, searchParams }: Props) {
   if (!data) notFound();
 
   const { board, workspace, canManage } = data;
-  const view = sp.vista === "calendario" ? "calendario" : sp.vista === "kanban" ? "kanban" : "tabla";
+  const view = sp.vista === "calendario" ? "calendario" : sp.vista === "kanban" ? "kanban" : sp.vista === "gantt" ? "gantt" : "tabla";
 
   return (
     <div className="w-full px-4 pt-6 sm:px-8">
@@ -69,6 +69,10 @@ export default async function BoardPage({ params, searchParams }: Props) {
 
       <BoardView
         boardId={board.id}
+        workspaceId={workspace.id}
+        workspaceBoards={data.workspaceBoards}
+        linkedBoards={data.linkedBoards}
+        linkedItems={data.linkedItems}
         boardName={board.name}
         view={view}
         settings={parseBoardSettings(board.settings)}
