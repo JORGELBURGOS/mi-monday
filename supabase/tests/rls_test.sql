@@ -32,10 +32,32 @@ declare
   n int;
   blocked boolean;
 begin
-  insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
-  values ('00000000-0000-0000-0000-000000000000', a, 'authenticated', 'authenticated', 'rls-a@example.test', now(), '{"full_name":"Persona A"}', now(), now()),
-         ('00000000-0000-0000-0000-000000000000', b, 'authenticated', 'authenticated', 'rls-b@example.test', now(), '{}', now(), now()),
-         ('00000000-0000-0000-0000-000000000000', c, 'authenticated', 'authenticated', 'rls-c@example.test', now(), '{}', now(), now());
+  -- Registro público cerrado: un alta sin la marca de la función de administración se rechaza.
+  blocked := false;
+  begin
+    insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at, raw_user_meta_data, raw_app_meta_data, created_at, updated_at)
+    values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'intruso@example.test', null, '{"vetta_provision_token":"inventado"}', '{"provider":"email"}', now(), now());
+  exception when others then blocked := true; end;
+  perform pg_temp.check(blocked, 'el registro público está bloqueado');
+
+  insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at, raw_user_meta_data, raw_app_meta_data, created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000000', a, 'authenticated', 'authenticated', 'rls-a@example.test', now(),
+          jsonb_build_object('full_name', 'Persona A', 'vetta_provision_token', public.admin_issue_provision_token()), '{"provider":"email"}', now(), now()),
+         ('00000000-0000-0000-0000-000000000000', b, 'authenticated', 'authenticated', 'rls-b@example.test', now(),
+          jsonb_build_object('vetta_provision_token', public.admin_issue_provision_token()), '{"provider":"email"}', now(), now()),
+         ('00000000-0000-0000-0000-000000000000', c, 'authenticated', 'authenticated', 'rls-c@example.test', now(),
+          jsonb_build_object('vetta_provision_token', public.admin_issue_provision_token()), '{"provider":"email"}', now(), now());
+  perform pg_temp.check(not exists (select 1 from auth.users where id = a and raw_user_meta_data ? 'vetta_provision_token'),
+    'el token de alta no queda guardado en el usuario');
+  blocked := false;
+  begin
+    insert into auth.users (instance_id, id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+    select '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'reuso@example.test',
+           jsonb_build_object('vetta_provision_token', t.token), now(), now()
+    from private.provision_tokens t limit 1;
+    if not found then blocked := true; end if;
+  exception when others then blocked := true; end;
+  perform pg_temp.check(blocked, 'un token de alta no se puede reutilizar');
 
   select count(*) into n from public.profiles where id in (a, b, c);
   perform pg_temp.check(n = 3, 'se crea un perfil por usuario');
@@ -82,6 +104,17 @@ begin
   perform pg_temp.check(not exists (select 1 from public.profiles where id = a), 'C no ve perfiles ajenos');
   update public.tasks set title = 'hack' where id = tk; get diagnostics n = row_count;
   perform pg_temp.check(n = 0, 'C no puede editar tareas');
+  update public.profiles set full_name = 'Nombre propio' where id = c; get diagnostics n = row_count;
+  perform pg_temp.check(n = 1, 'cada usuario puede cambiar su nombre');
+  blocked := false;
+  begin update public.profiles set is_platform_admin = true where id = c; exception when others then blocked := true; end;
+  perform pg_temp.check(blocked, 'nadie puede hacerse administrador de la plataforma');
+  blocked := false;
+  begin update public.profiles set must_change_password = false where id = c; exception when others then blocked := true; end;
+  perform pg_temp.check(blocked, 'nadie puede saltear el cambio obligatorio de contraseña');
+  blocked := false;
+  begin perform public.admin_revoke_sessions(a); exception when others then blocked := true; end;
+  perform pg_temp.check(blocked, 'un usuario no puede cerrar sesiones ajenas');
   blocked := false;
   begin insert into public.tasks (board_id, group_id, title) values (bd, grp, 'intrusa'); exception when others then blocked := true; end;
   perform pg_temp.check(blocked, 'C no puede crear tareas');
