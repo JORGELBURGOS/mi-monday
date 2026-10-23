@@ -100,7 +100,7 @@ export function SidebarShowButton() {
   );
 }
 
-const STEPS = [0.6, 0.67, 0.75, 0.8, 0.9, 1, 1.1];
+const STEPS = [0.5, 0.55, 0.6, 0.67, 0.75, 0.8, 0.9, 1, 1.1];
 
 function subscribeZoom(cb: () => void) {
   window.addEventListener("resize", cb);

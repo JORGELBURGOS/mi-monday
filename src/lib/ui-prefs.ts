@@ -8,7 +8,7 @@ export const ZOOM_KEY = "vetta-zoom";
 export const SIDEBAR_KEY = "vetta-sidebar";
 export const SIDEBAR_HIDDEN_KEY = "vetta-sidebar-hidden";
 
-export const DEFAULT_ZOOM = 0.75;
+export const DEFAULT_ZOOM = 0.67;
 export const SIDEBAR_MIN = 170;
 export const SIDEBAR_MAX = 520;
 export const SIDEBAR_DEFAULT = 248;
