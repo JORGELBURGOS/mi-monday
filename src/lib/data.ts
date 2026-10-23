@@ -28,12 +28,20 @@ export type Member = {
   email: string | null;
   deactivated_at?: string | null;
   must_change_password?: boolean;
+  /** Solo lo ve el propio superadministrador (para los demás no existe). */
+  is_platform_admin?: boolean;
 };
 
 export type WorkspaceWithRole = Workspace & { role: WorkspaceRole };
 
 export const getMyWorkspaces = cache(async (userId: string): Promise<WorkspaceWithRole[]> => {
   const supabase = await createClient();
+  // El superadministrador ve todas las empresas y en cada una actúa como administrador principal.
+  if (await isPlatformAdmin(userId)) {
+    const { data, error } = await supabase.from("workspaces").select("*").order("name");
+    if (error) throw new Error("No se pudieron cargar las empresas.");
+    return (data ?? []).map((w) => ({ ...w, role: "owner" as const }));
+  }
   const { data, error } = await supabase
     .from("workspace_members")
     .select("role, workspaces!inner(*)")
@@ -46,6 +54,10 @@ export const getMyWorkspaces = cache(async (userId: string): Promise<WorkspaceWi
 
 export const getWorkspace = cache(async (workspaceId: string, userId: string): Promise<WorkspaceWithRole | null> => {
   const supabase = await createClient();
+  if (await isPlatformAdmin(userId)) {
+    const { data } = await supabase.from("workspaces").select("*").eq("id", workspaceId).maybeSingle();
+    return data ? { ...data, role: "owner" } : null;
+  }
   const { data, error } = await supabase
     .from("workspace_members")
     .select("role, workspaces!inner(*)")
@@ -94,7 +106,7 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<Member[]
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("workspace_members")
-    .select("user_id, role, created_at, profiles!inner(full_name, email, deactivated_at, must_change_password)")
+    .select("user_id, role, created_at, profiles!inner(full_name, email, deactivated_at, must_change_password, is_platform_admin)")
     .eq("workspace_id", workspaceId);
   if (error) throw new Error("No se pudieron cargar los miembros.");
   const order: Record<WorkspaceRole, number> = { owner: 0, admin: 1, member: 2 };
@@ -107,6 +119,7 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<Member[]
       email: m.profiles?.email ?? null,
       deactivated_at: m.profiles?.deactivated_at ?? null,
       must_change_password: m.profiles?.must_change_password ?? false,
+      is_platform_admin: m.profiles?.is_platform_admin ?? false,
     }))
     .sort((a, b) => order[a.role] - order[b.role] || displayName(a).localeCompare(displayName(b), "es"));
 }

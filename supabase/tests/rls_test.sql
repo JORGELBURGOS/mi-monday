@@ -69,6 +69,10 @@ begin
   insert into public.workspaces (name) values ('Espacio de prueba') returning id into ws;
   perform pg_temp.check(exists (select 1 from public.workspace_members where workspace_id = ws and user_id = a and role = 'owner'),
     'el creador queda como propietario');
+  -- Desde acá A es un propietario común (el superadministrador tiene acceso total y es invisible).
+  execute 'reset role';
+  update public.profiles set is_platform_admin = false where id = a;
+  perform pg_temp.act_as(a, 'rls-a@example.test');
 
   insert into public.boards (workspace_id, name) values (ws, 'Tablero compartido') returning id into bd;
   select count(*) into n from public.board_statuses where board_id = bd;

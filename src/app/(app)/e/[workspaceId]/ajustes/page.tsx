@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getWorkspace } from "@/lib/data";
+import { getWorkspace, isPlatformAdmin } from "@/lib/data";
 import { Card, PageHeader } from "@/components/ui/misc";
 import { WorkspaceForm } from "@/components/workspace-form";
 import { uuidSchema } from "@/lib/validation";
@@ -18,6 +18,7 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
   if (!workspace) notFound();
 
   const canEdit = workspace.role === "owner" || workspace.role === "admin";
+  const superadmin = await isPlatformAdmin(user.id);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
@@ -27,11 +28,11 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
           <Card>
             <WorkspaceForm workspace={workspace} />
           </Card>
-          {workspace.role === "owner" && (
+          {superadmin && (
             <Card className="border-danger/30">
               <h2 className="font-bold text-danger">Zona de peligro</h2>
               <p className="mt-1 text-sm text-muted">
-                Eliminar la empresa borra para siempre todos sus tableros, tareas y comentarios.
+                Solo el superadministrador puede eliminar una empresa. Se borran para siempre todos sus tableros, tareas y comentarios.
               </p>
               <DeleteWorkspace workspaceId={workspace.id} name={workspace.name} />
             </Card>

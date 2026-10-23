@@ -56,11 +56,13 @@ Plataforma para seguir el trabajo de punta a punta: empresas separadas entre sí
 - El registro público está bloqueado en la base: un trigger sobre `auth.users` exige un token de alta de un solo uso que solo emite la Edge Function.
 - Mientras una cuenta tenga un cambio de contraseña pendiente **o esté desactivada**, RLS le bloquea el acceso a todos los datos (además, una cuenta desactivada no puede iniciar sesión).
 - El acceso a cada tablero se valida en la base (`board_members` + `private.can_access_board`); quien no tiene acceso no ve el tablero ni sus tareas, comentarios o columnas.
-- Solo el superadministrador (`profiles.is_platform_admin`) puede crear empresas: lo exige un trigger en `workspaces` y lo vuelve a verificar `vetta-gestion`. Un administrador solo puede editar a personas que pertenezcan únicamente a empresas que él administra.
+- **Superadministrador** (`profiles.is_platform_admin`): acceso total a todas las empresas, tableros, usuarios y datos sin necesidad de ser miembro (la base lo trata como administrador principal en cualquier empresa). Es **invisible** para los usuarios de las empresas, incluido su administrador principal: no aparece en Usuarios, no se ve su perfil y nadie más lo puede editar ni quitar. Solo él crea y elimina empresas.
+- El **administrador principal** de cada empresa controla todo dentro de su empresa (usuarios, administradores, tableros y reglas), pero no ve otras empresas ni puede crearlas o eliminarlas.
+- Solo el superadministrador puede crear empresas: lo exige un trigger en `workspaces` y lo vuelve a verificar `vetta-gestion`. Un administrador solo puede editar a personas que pertenezcan únicamente a empresas que él administra.
 - Las reglas solo las crea quien administra el tablero de origen **y** el de destino, dentro de la misma empresa. El motor que las ejecuta corre en la base (triggers `SECURITY DEFINER` en el esquema `private`, con `search_path` fijo) porque quien dispara una regla puede no tener acceso al tablero de destino; solo ejecuta reglas guardadas y validadas. Las cadenas circulares se cortan solas.
 - El historial (`task_events`) y los vínculos (`task_links`) son de solo lectura para los usuarios: los escribe únicamente el motor.
 - Las funciones `SECURITY DEFINER` son mínimas, viven en el esquema `private` (no expuesto) salvo `respond_to_invitation`, y tienen `search_path` fijo. Cada una está justificada en la migración.
-- `supabase/tests/rls_test.sql` (50 pruebas de permisos) `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) `supabase/tests/rules_test.sql` (29 pruebas del motor de reglas por fechas, condiciones y avisos) `supabase/tests/access_test.sql` (22 pruebas de acceso por tablero, cuentas desactivadas y alta de empresas) y `supabase/tests/columns_test.sql` (13 pruebas de tipos de columna, colores y ajustes) se ejecutan dentro de una transacción que se revierte.
+- `supabase/tests/rls_test.sql` (50 pruebas de permisos) `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) `supabase/tests/rules_test.sql` (29 pruebas del motor de reglas por fechas, condiciones y avisos) `supabase/tests/access_test.sql` (22 pruebas de acceso por tablero, cuentas desactivadas y alta de empresas) `supabase/tests/columns_test.sql` (13 pruebas de tipos de columna, colores y ajustes) y `supabase/tests/superadmin_test.sql` (12 pruebas de acceso total e invisibilidad del superadministrador) se ejecutan dentro de una transacción que se revierte.
 
 ## Puesta en marcha local
 
@@ -82,6 +84,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/flows_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rules_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/access_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/columns_test.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/superadmin_test.sql
 ```
 
 ## Cuentas y contraseñas

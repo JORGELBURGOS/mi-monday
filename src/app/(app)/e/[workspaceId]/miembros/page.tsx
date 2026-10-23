@@ -32,6 +32,7 @@ export default async function MembersPage({ params }: { params: Promise<{ worksp
         workspaceId={workspaceId}
         myId={user.id}
         myRole={superadmin ? "owner" : workspace.role}
+        superadmin={superadmin}
         members={members}
         boards={access.boards.filter((b) => !b.is_archived)}
         grants={access.grants}

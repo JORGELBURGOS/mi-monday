@@ -37,10 +37,12 @@ export function MembersPanel({
   members,
   boards,
   grants,
+  superadmin = false,
 }: {
   workspaceId: string;
   myId: string;
   myRole: WorkspaceRole;
+  superadmin?: boolean;
   members: Member[];
   boards: AccessBoard[];
   grants: Grant[];
@@ -53,7 +55,8 @@ export function MembersPanel({
   const privateBoards = boards.filter((b) => b.visibility === "private");
   const sharedBoards = boards.filter((b) => b.visibility === "workspace");
 
-  const canEdit = (m: Member) => canManage && m.user_id !== myId && (myRole === "owner" || m.role !== "owner");
+  const canEdit = (m: Member) => canManage && m.user_id !== myId && !m.is_platform_admin && (myRole === "owner" || m.role !== "owner");
+  const iAmSuperadmin = members.some((m) => m.user_id === myId && m.is_platform_admin) || superadmin;
   const accessSummary = (m: Member) => {
     if (m.role === "owner" || m.role === "admin") return "Ve todos los tableros";
     const own = grants.filter((g) => g.user_id === m.user_id && privateBoards.some((b) => b.id === g.board_id)).length;
@@ -100,9 +103,15 @@ export function MembersPanel({
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                  <span className="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold" title={ROLE_HELP[m.role]}>
-                    {ROLE_LABELS[m.role]}
-                  </span>
+                  {m.is_platform_admin ? (
+                    <span className="rounded-full bg-fg px-3 py-1 text-xs font-semibold text-bg" title="Acceso total a todas las empresas. Los usuarios de la empresa no lo ven.">
+                      Superadmin · oculto para la empresa
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold" title={ROLE_HELP[m.role]}>
+                      {ROLE_LABELS[m.role]}
+                    </span>
+                  )}
                   <span className="text-xs text-muted">{accessSummary(m)}</span>
                   {canEdit(m) && (
                     <Button size="sm" onClick={() => setEditing(m)}>
@@ -126,11 +135,13 @@ export function MembersPanel({
             </div>
           ))}
         </dl>
-        <div className="mt-5 border-t border-line pt-4">
-          <Button variant="outline-danger" size="sm" onClick={() => setLeaving(true)}>
-            Salir de esta empresa
-          </Button>
-        </div>
+        {!iAmSuperadmin && (
+          <div className="mt-5 border-t border-line pt-4">
+            <Button variant="outline-danger" size="sm" onClick={() => setLeaving(true)}>
+              Salir de esta empresa
+            </Button>
+          </div>
+        )}
       </Card>
 
       {editing && (

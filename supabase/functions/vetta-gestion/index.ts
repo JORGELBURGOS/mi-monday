@@ -193,7 +193,9 @@ async function provisionMember(
   workspaceId: string,
   input: { email: string; fullName: string; role: Role; password?: unknown; boards?: unknown },
 ) {
-  const { data: existing } = await admin.from("profiles").select("id").eq("email", input.email).maybeSingle();
+  const { data: existing } = await admin.from("profiles").select("id, is_platform_admin").eq("email", input.email).maybeSingle();
+  // El superadministrador no se suma a empresas como un usuario más (ya tiene acceso a todas).
+  if (existing?.is_platform_admin) throw new HttpError(409, "Ya existe una cuenta con ese email.");
   if (existing) {
     const currentRole = await getRole(workspaceId, existing.id);
     if (currentRole) throw new HttpError(409, "Esa persona ya es miembro de la empresa.");
@@ -322,18 +324,21 @@ async function listCompanies(caller: Caller) {
   requirePlatformAdmin(caller);
   const [{ data: workspaces }, { data: members }, { data: boards }] = await Promise.all([
     admin.from("workspaces").select("id, name, created_at").order("name"),
-    admin.from("workspace_members").select("workspace_id, user_id, role, profiles(full_name, email, deactivated_at, must_change_password)"),
+    admin.from("workspace_members").select("workspace_id, user_id, role, profiles(full_name, email, deactivated_at, must_change_password, is_platform_admin)"),
     admin.from("boards").select("workspace_id, is_archived"),
   ]);
   return (workspaces ?? []).map((w) => {
-    const people = (members ?? []).filter((m) => m.workspace_id === w.id);
+    // El superadministrador no cuenta como usuario de ninguna empresa.
+    const people = (members ?? []).filter(
+      (m) => m.workspace_id === w.id && !(m.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin,
+    );
     return {
       id: w.id,
       name: w.name,
       created_at: w.created_at,
       boards: (boards ?? []).filter((b) => b.workspace_id === w.id && !b.is_archived).length,
       users: people.length,
-      is_member: people.some((m) => m.user_id === caller.id),
+      is_member: true,
       admins: people
         .filter((m) => m.role === "owner" || m.role === "admin")
         .map((m) => {

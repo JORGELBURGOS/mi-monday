@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useId, useState, useTransition } from "react";
-import { createCompanyAction, joinCompanyAction, renameCompanyAction, type Company, type CreateCompanyState } from "@/app/actions/companies";
+import { createCompanyAction, renameCompanyAction, type Company, type CreateCompanyState } from "@/app/actions/companies";
 import { Card, EmptyState } from "@/components/ui/misc";
 import { Button, SubmitButton } from "@/components/ui/button";
 import { buttonClasses } from "@/components/ui/button-classes";
@@ -19,8 +19,6 @@ export function CompaniesPanel({ companies }: { companies: Company[] }) {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [renaming, setRenaming] = useState<Company | null>(null);
-  const [pending, startTransition] = useTransition();
-  const toast = useToast();
 
   return (
     <div className="space-y-4">
@@ -78,30 +76,12 @@ export function CompaniesPanel({ companies }: { companies: Company[] }) {
                   )}
                 </div>
                 <div className="mt-auto flex flex-wrap gap-2 border-t border-line pt-3">
-                  {c.is_member ? (
-                    <>
-                      <Link href={`/e/${c.id}`} className={buttonClasses("secondary", "sm")}>
-                        Entrar
-                      </Link>
-                      <Link href={`/e/${c.id}/miembros`} className={buttonClasses("ghost", "sm")}>
-                        Usuarios
-                      </Link>
-                    </>
-                  ) : (
-                    <Button
-                      size="sm"
-                      disabled={pending}
-                      onClick={() =>
-                        startTransition(async () => {
-                          const res = await joinCompanyAction(c.id);
-                          if (!res.ok) toast.error(res.error);
-                          else toast.success(res.message ?? "Listo.");
-                        })
-                      }
-                    >
-                      Sumarme para administrarla
-                    </Button>
-                  )}
+                  <Link href={`/e/${c.id}`} className={buttonClasses("secondary", "sm")}>
+                    Entrar
+                  </Link>
+                  <Link href={`/e/${c.id}/miembros`} className={buttonClasses("ghost", "sm")}>
+                    Usuarios
+                  </Link>
                 </div>
               </Card>
             </li>
