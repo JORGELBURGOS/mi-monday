@@ -33,6 +33,7 @@ Plataforma para seguir el trabajo de punta a punta: empresas separadas entre sí
   - **Fórmulas** como en Monday/Excel: `{Precio} * {Cantidad}`, `IF({Estado} = "Listo", "✔", "")`, `DAYS({Vencimiento}, TODAY())`, `WORKDAYS({Cronograma#Fin}, {Cronograma#Inicio})`, `TEXT({Monto}, "$#,##0.00")`… Más de 60 funciones de números, texto, lógica y fechas, con editor, catálogo y vista previa. Se calculan sin `eval` (parser propio en `src/lib/formula.ts`).
   - **Resumen al pie de cada carpeta**: suma/promedio/mediana/mín/máx/cantidad de números y fórmulas, barra de distribución de estados y etiquetas, rango de fechas, promedio de calificación.
   - **Vistas**: Tabla, **Kanban** (arrastrar cambia el estado) y Calendario.
+  - **Subelementos**: cada elemento puede tener subelementos con las mismas columnas (estado, responsable, fórmulas…). Se despliegan debajo del elemento mostrando cuántos están terminados, acompañan a su elemento si cambia de carpeta o viaja a otro tablero, y se duplican y eliminan con él. Las reglas del tablero se aplican solo a los elementos.
   - **Selección múltiple** con acciones en lote: cambiar estado o prioridad, mover de carpeta, duplicar, exportar y eliminar.
   - Búsqueda en todas las columnas, filtros por estado, prioridad, responsable y cualquier columna de etiquetas/persona/casilla; orden por cualquier columna; **Exportar** a CSV para Excel.
 - **Reglas entre tableros** (Tablero → Reglas): cuando un ítem cambia de estado, entra a una carpeta o llega al tablero, se puede
@@ -62,7 +63,7 @@ Plataforma para seguir el trabajo de punta a punta: empresas separadas entre sí
 - Las reglas solo las crea quien administra el tablero de origen **y** el de destino, dentro de la misma empresa. El motor que las ejecuta corre en la base (triggers `SECURITY DEFINER` en el esquema `private`, con `search_path` fijo) porque quien dispara una regla puede no tener acceso al tablero de destino; solo ejecuta reglas guardadas y validadas. Las cadenas circulares se cortan solas.
 - El historial (`task_events`) y los vínculos (`task_links`) son de solo lectura para los usuarios: los escribe únicamente el motor.
 - Las funciones `SECURITY DEFINER` son mínimas, viven en el esquema `private` (no expuesto) salvo `respond_to_invitation`, y tienen `search_path` fijo. Cada una está justificada en la migración.
-- `supabase/tests/rls_test.sql` (50 pruebas de permisos) `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) `supabase/tests/rules_test.sql` (29 pruebas del motor de reglas por fechas, condiciones y avisos) `supabase/tests/access_test.sql` (22 pruebas de acceso por tablero, cuentas desactivadas y alta de empresas) `supabase/tests/columns_test.sql` (13 pruebas de tipos de columna, colores y ajustes) y `supabase/tests/superadmin_test.sql` (12 pruebas de acceso total e invisibilidad del superadministrador) se ejecutan dentro de una transacción que se revierte.
+- `supabase/tests/rls_test.sql` (50 pruebas de permisos) `supabase/tests/flows_test.sql` (42 pruebas de columnas, reglas y trazabilidad) `supabase/tests/rules_test.sql` (29 pruebas del motor de reglas por fechas, condiciones y avisos) `supabase/tests/access_test.sql` (22 pruebas de acceso por tablero, cuentas desactivadas y alta de empresas) `supabase/tests/columns_test.sql` (13 pruebas de tipos de columna, colores y ajustes) `supabase/tests/superadmin_test.sql` (12 pruebas de acceso total e invisibilidad del superadministrador) y `supabase/tests/subitems_test.sql` (11 pruebas de subelementos) se ejecutan dentro de una transacción que se revierte.
 
 ## Puesta en marcha local
 
@@ -85,6 +86,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rules_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/access_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/columns_test.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/superadmin_test.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/subitems_test.sql
 ```
 
 ## Cuentas y contraseñas

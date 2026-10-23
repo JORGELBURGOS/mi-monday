@@ -709,6 +709,7 @@ export type Database = {
           due_date: string | null
           group_id: string
           id: string
+          parent_id: string | null
           position: number
           priority: Database["public"]["Enums"]["task_priority"]
           status_id: string | null
@@ -725,6 +726,7 @@ export type Database = {
           due_date?: string | null
           group_id: string
           id?: string
+          parent_id?: string | null
           position?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           status_id?: string | null
@@ -741,6 +743,7 @@ export type Database = {
           due_date?: string | null
           group_id?: string
           id?: string
+          parent_id?: string | null
           position?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           status_id?: string | null

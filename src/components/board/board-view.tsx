@@ -93,6 +93,14 @@ export function BoardView({
   const [deletingColumn, setDeletingColumn] = useState<BoardColumn | null>(null);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [settingsKey, setSettingsKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string, open?: boolean) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      if (open ?? !n.has(id)) n.add(id);
+      else n.delete(id);
+      return n;
+    });
   const dragRef = useRef<string | null>(null);
   const editable = canManage && !readOnly;
 
@@ -190,15 +198,31 @@ export function BoardView({
   );
   const manual = !sort;
 
+  // Subelementos: se muestran debajo de su elemento, no como filas sueltas.
+  const childrenOf = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const t of optimisticTasks) {
+      if (!t.parent_id) continue;
+      const list = map.get(t.parent_id) ?? [];
+      list.push(t);
+      map.set(t.parent_id, list);
+    }
+    for (const [k, list] of map) map.set(k, list.sort((a, b) => a.position - b.position));
+    return map;
+  }, [optimisticTasks]);
+  const topTasks = useMemo(() => optimisticTasks.filter((t) => !t.parent_id), [optimisticTasks]);
+
   const tasksByGroup = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const g of optimisticGroups) map.set(g.id, []);
-    for (const t of optimisticTasks) map.get(t.group_id)?.push(t);
+    for (const t of topTasks) map.get(t.group_id)?.push(t);
     for (const [k, list] of map) map.set(k, list.sort((a, b) => a.position - b.position));
     return map;
-  }, [optimisticTasks, optimisticGroups]);
+  }, [topTasks, optimisticGroups]);
 
-  const visibleTasks = optimisticTasks.filter(matches);
+  // Un elemento se muestra si coincide él o alguno de sus subelementos.
+  const matchesTree = (t: Task) => matches(t) || (childrenOf.get(t.id) ?? []).some(matches);
+  const visibleTasks = topTasks.filter(matchesTree);
 
   /* ----------------------------------------------------------- mutaciones */
 
@@ -244,7 +268,8 @@ export function BoardView({
       const task = optimisticTasks.find((t) => t.id === taskId);
       if (task) moveTask(task, groupId, index);
     },
-    onCreateTask: (groupId, title) => {
+    onCreateTask: (groupId, title, parentId) => {
+      if (parentId) toggleExpand(parentId, true);
       const temp: Task = {
         id: `tmp-${crypto.randomUUID()}`,
         board_id: boardId,
@@ -258,10 +283,11 @@ export function BoardView({
         custom_values: {},
         position: Number.MAX_SAFE_INTEGER,
         created_by: null,
+        parent_id: parentId ?? null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      run(() => createTaskAction(boardId, groupId, title), { task: { type: "add", task: temp } });
+      run(() => createTaskAction(boardId, groupId, title, parentId), { task: { type: "add", task: temp } });
     },
     onRenameGroup: (g, name) => run(() => updateGroupAction(g.id, { name }), { group: { type: "update", id: g.id, patch: { name } } }),
     onRecolorGroup: (g, color) => run(() => updateGroupAction(g.id, { color }), { group: { type: "update", id: g.id, patch: { color } } }),
@@ -374,12 +400,13 @@ export function BoardView({
     });
   const clearSelection = () => setSelected(new Set());
 
-  const exportCsv = (list: Task[]) => {
+  const exportCsv = (base: Task[]) => {
+    const list = base.flatMap((t) => (t.parent_id ? [t] : [t, ...(childrenOf.get(t.id) ?? []).filter((c) => !base.includes(c))]));
     const cols = [titleLabel, "Carpeta", ...defs.map((d) => d.label)];
     const rows = list.map((t) => {
       const values = readValues(t.custom_values);
       return [
-        t.title,
+        t.parent_id ? `↳ ${t.title}` : t.title,
         optimisticGroups.find((g) => g.id === t.group_id)?.name ?? "",
         ...defs.map((d) => {
           if (d.builtin === "status") return statuses.find((s) => s.id === t.status_id)?.label ?? "";
@@ -559,14 +586,14 @@ export function BoardView({
               Exportar
             </Button>
             <span className="text-xs text-muted" aria-live="polite">
-              {active ? `${visibleTasks.length} de ${optimisticTasks.length}` : `${optimisticTasks.length} elementos`}
+              {active ? `${visibleTasks.length} de ${topTasks.length}` : `${topTasks.length} elementos`}
             </span>
           </span>
         </div>
       </div>
 
       {view === "calendario" ? (
-        <CalendarView tasks={visibleTasks} statuses={statuses} today={today} onOpenTask={(t) => setOpenTaskId(t.id)} />
+        <CalendarView tasks={optimisticTasks.filter(matches)} statuses={statuses} today={today} onOpenTask={(t) => setOpenTaskId(t.id)} />
       ) : view === "kanban" ? (
         <KanbanView
           tasks={sortList(visibleTasks)}
@@ -586,7 +613,7 @@ export function BoardView({
           )}
           {optimisticGroups.map((g, i) => {
             const all = tasksByGroup.get(g.id) ?? [];
-            const visible = sortList(all.filter(matches));
+            const visible = sortList(all.filter(matchesTree));
             return (
               <GroupSection
                 key={g.id}
@@ -614,12 +641,15 @@ export function BoardView({
                 sort={sort}
                 selected={selected}
                 onSelect={onSelect}
+                childrenOf={childrenOf}
+                expanded={expanded}
+                onToggleExpand={toggleExpand}
                 dragRef={dragRef}
               />
             );
           })}
           {optimisticGroups.length === 0 && <EmptyState title="Este tablero no tiene carpetas" description="Creá una carpeta para empezar a cargar elementos." />}
-          {active && visibleTasks.length === 0 && optimisticTasks.length > 0 && (
+          {active && visibleTasks.length === 0 && topTasks.length > 0 && (
             <EmptyState icon={<IconSearch />} title="Ningún elemento coincide con los filtros" action={<Button onClick={() => setFilters(EMPTY_FILTERS)}>Limpiar filtros</Button>} />
           )}
         </div>
@@ -659,6 +689,9 @@ export function BoardView({
           readOnly={readOnly || openTask.id.startsWith("tmp-")}
           onClose={() => setOpenTaskId(null)}
           onOpenTask={(id) => setOpenTaskId(id)}
+          subitems={childrenOf.get(openTask.id) ?? []}
+          parent={openTask.parent_id ? (optimisticTasks.find((t) => t.id === openTask.parent_id) ?? null) : null}
+          onCreateSubitem={(title) => handlers.onCreateTask(openTask.group_id, title, openTask.id)}
           onSaved={() => toast.success("Cambios guardados.")}
           onDelete={() => {
             setOpenTaskId(null);
@@ -709,7 +742,14 @@ export function BoardView({
         title="Eliminar elemento"
         description={
           <>
-            Vas a eliminar <strong className="text-fg">“{deleting?.title}”</strong> y sus comentarios. No se puede deshacer.
+            Vas a eliminar <strong className="text-fg">“{deleting?.title}”</strong>
+            {deleting && (childrenOf.get(deleting.id)?.length ?? 0) > 0 && (
+              <>
+                {" "}
+                con sus <strong className="text-fg">{childrenOf.get(deleting.id)!.length} subelementos</strong>
+              </>
+            )}{" "}
+            y sus comentarios. No se puede deshacer.
           </>
         }
         confirmLabel="Eliminar"

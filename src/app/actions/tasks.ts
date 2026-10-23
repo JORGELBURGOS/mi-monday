@@ -11,18 +11,20 @@ export async function createTaskAction(
   boardId: string,
   groupId: string,
   title: string,
+  parentId?: string | null,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await actionContext();
   if (!ctx) return fail(SESSION_EXPIRED);
   if (!uuidSchema.safeParse(boardId).success || !uuidSchema.safeParse(groupId).success) return fail("Datos inválidos.");
+  if (parentId && !uuidSchema.safeParse(parentId).success) return fail("Elemento inválido.");
   const parsed = taskTitleSchema.safeParse(title);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Título inválido.");
 
   const [{ data: last }, { data: firstStatus }] = await Promise.all([
-    ctx.supabase
-      .from("tasks")
-      .select("position")
-      .eq("group_id", groupId)
+    (parentId
+      ? ctx.supabase.from("tasks").select("position").eq("parent_id", parentId)
+      : ctx.supabase.from("tasks").select("position").eq("group_id", groupId)
+    )
       .order("position", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -36,11 +38,12 @@ export async function createTaskAction(
       group_id: groupId,
       title: parsed.data,
       status_id: firstStatus?.id ?? null,
+      parent_id: parentId ?? null,
       position: (last?.position ?? 0) + POSITION_STEP,
     })
     .select("id")
     .single();
-  if (error || !data) return fromDb(error, "No se pudo crear la tarea.");
+  if (error || !data) return fromDb(error, parentId ? "No se pudo crear el subelemento." : "No se pudo crear la tarea.");
   refresh();
   return ok({ id: data.id });
 }
@@ -87,10 +90,10 @@ export async function duplicateTaskAction(taskId: string): Promise<ActionResult<
   const { data: src } = await ctx.supabase.from("tasks").select("*").eq("id", taskId).maybeSingle();
   if (!src) return fail("La tarea ya no existe o no tenés acceso.");
 
-  const { data: next } = await ctx.supabase
-    .from("tasks")
-    .select("position")
-    .eq("group_id", src.group_id)
+  const siblings = src.parent_id
+    ? ctx.supabase.from("tasks").select("position").eq("parent_id", src.parent_id)
+    : ctx.supabase.from("tasks").select("position").eq("group_id", src.group_id).is("parent_id", null);
+  const { data: next } = await siblings
     .gt("position", src.position)
     .order("position")
     .limit(1)
@@ -110,11 +113,35 @@ export async function duplicateTaskAction(taskId: string): Promise<ActionResult<
       assignee_id: src.assignee_id,
       due_date: src.due_date,
       custom_values: src.custom_values,
+      parent_id: src.parent_id,
       position,
     })
     .select("id")
     .single();
   if (error || !data) return fromDb(error, "No se pudo duplicar la tarea.");
+
+  // Al duplicar un elemento se duplican también sus subelementos.
+  if (!src.parent_id) {
+    const { data: children } = await ctx.supabase.from("tasks").select("*").eq("parent_id", src.id).order("position");
+    if (children?.length) {
+      const { error: cErr } = await ctx.supabase.from("tasks").insert(
+        children.map((c) => ({
+          board_id: c.board_id,
+          group_id: c.group_id,
+          parent_id: data.id,
+          title: c.title,
+          description: c.description,
+          status_id: c.status_id,
+          priority: c.priority,
+          assignee_id: c.assignee_id,
+          due_date: c.due_date,
+          custom_values: c.custom_values,
+          position: c.position,
+        })),
+      );
+      if (cErr) return fromDb(cErr, "Se duplicó el elemento, pero no sus subelementos.");
+    }
+  }
   refresh();
   return ok({ id: data.id }, "Tarea duplicada.");
 }

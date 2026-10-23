@@ -38,6 +38,9 @@ export function TaskDialog({
   env,
   labelEditors,
   readOnly,
+  subitems,
+  parent,
+  onCreateSubitem,
   onClose,
   onOpenTask,
   onSaved,
@@ -55,6 +58,9 @@ export function TaskDialog({
   labelEditors: LabelEditors;
   today: string;
   readOnly: boolean;
+  subitems: Task[];
+  parent: Task | null;
+  onCreateSubitem: (title: string) => void;
   onClose: () => void;
   onOpenTask: (taskId: string) => void;
   onSaved: () => void;
@@ -138,10 +144,18 @@ export function TaskDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} title={readOnly ? task.title : "Detalle del elemento"} size="lg">
+    <Dialog open onClose={onClose} title={readOnly ? task.title : parent ? "Detalle del subelemento" : "Detalle del elemento"} size="lg">
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
         <div className="space-y-4">
           {error && <FormAlert>{error}</FormAlert>}
+          {parent && (
+            <p className="text-sm text-muted">
+              Subelemento de{" "}
+              <button type="button" onClick={() => onOpenTask(parent.id)} className="font-semibold text-accent hover:underline">
+                {parent.title}
+              </button>
+            </p>
+          )}
           <Field id={`${uid}-title`} label={builtinLabel(env.settings, "title")} error={titleError ?? undefined}>
             <Input
               id={`${uid}-title`}
@@ -164,6 +178,15 @@ export function TaskDialog({
               placeholder="Detalles, criterios, enlaces…"
             />
           </Field>
+          {!parent && (
+            <Subitems
+              items={subitems}
+              statuses={statuses}
+              readOnly={readOnly || task.id.startsWith("tmp-")}
+              onOpen={onOpenTask}
+              onCreate={onCreateSubitem}
+            />
+          )}
           <div className="border-t border-line pt-4">
             <div role="tablist" aria-label="Actividad del ítem" className="mb-4 flex gap-1 rounded-lg bg-surface-2 p-0.5">
               {(
@@ -239,8 +262,8 @@ export function TaskDialog({
           <Field id={`${uid}-due`} label={builtinLabel(env.settings, "due")}>
             <Input id={`${uid}-due`} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly} />
           </Field>
-          <Field id={`${uid}-group`} label="Carpeta">
-            <Select id={`${uid}-group`} value={groupId} onChange={(e) => setGroupId(e.target.value)} disabled={readOnly}>
+          <Field id={`${uid}-group`} label="Carpeta" hint={parent ? "La de su elemento" : undefined}>
+            <Select id={`${uid}-group`} value={groupId} onChange={(e) => setGroupId(e.target.value)} disabled={readOnly || Boolean(parent)}>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
@@ -436,6 +459,71 @@ function Comments({ taskId, disabled }: { taskId: string; disabled: boolean }) {
           </div>
         </form>
       )}
+    </section>
+  );
+}
+
+function Subitems({
+  items,
+  statuses,
+  readOnly,
+  onOpen,
+  onCreate,
+}: {
+  items: Task[];
+  statuses: Status[];
+  readOnly: boolean;
+  onOpen: (id: string) => void;
+  onCreate: (title: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const uid = useId();
+  const done = items.filter((t) => statuses.find((s) => s.id === t.status_id)?.is_done).length;
+  return (
+    <section aria-labelledby={`${uid}-h`} className="rounded-xl border border-line">
+      <h3 id={`${uid}-h`} className="flex items-center justify-between border-b border-line px-3 py-2 text-sm font-bold">
+        Subelementos
+        {items.length > 0 && (
+          <span className="text-xs font-semibold text-muted">
+            {done} de {items.length} terminados
+          </span>
+        )}
+      </h3>
+      {items.length > 0 && (
+        <ul className="divide-y divide-line">
+          {items.map((t) => {
+            const st = statuses.find((s) => s.id === t.status_id);
+            return (
+              <li key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                <button type="button" onClick={() => onOpen(t.id)} disabled={t.id.startsWith("tmp-")} className={cn("min-w-0 flex-1 truncate text-left hover:underline", st?.is_done && "text-muted line-through")}>
+                  {t.title}
+                </button>
+                {st && <span className={cn(`solid-${asColor(st.color)}`, "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold")}>{st.label}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!readOnly && (
+        <form
+          className="flex gap-2 p-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!title.trim()) return;
+            onCreate(title.trim());
+            setTitle("");
+          }}
+        >
+          <label htmlFor={`${uid}-new`} className="sr-only">
+            Nuevo subelemento
+          </label>
+          <Input id={`${uid}-new`} value={title} maxLength={500} onChange={(e) => setTitle(e.target.value)} placeholder="Agregar un subelemento y presionar Enter" className="h-9" />
+          <Button type="submit" size="sm" className="h-9" disabled={!title.trim()}>
+            Agregar
+          </Button>
+        </form>
+      )}
+      {readOnly && items.length === 0 && <p className="px-3 py-2 text-sm text-muted">Sin subelementos.</p>}
     </section>
   );
 }

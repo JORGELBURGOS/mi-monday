@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { cn } from "@/lib/cn";
 import { COLOR_LABELS, COLOR_NAMES, asColor, type ColorName, type Priority } from "@/lib/constants";
 import { Menu, type MenuItem } from "@/components/ui/menu";
@@ -37,7 +37,7 @@ export type GroupHandlers = {
   onDuplicateTask: (t: Task) => void;
   onMoveTask: (t: Task, groupId: string, index: number) => void;
   onMoveTaskById: (taskId: string, groupId: string, index: number) => void;
-  onCreateTask: (groupId: string, title: string) => void;
+  onCreateTask: (groupId: string, title: string, parentId?: string) => void;
   onRenameGroup: (g: Group, name: string) => void;
   onRecolorGroup: (g: Group, color: ColorName) => void;
   onMoveGroup: (g: Group, dir: "up" | "down") => void;
@@ -77,6 +77,10 @@ type Props = {
   sort: { key: string; dir: "asc" | "desc" } | null;
   selected: Set<string>;
   onSelect: (ids: string[], on: boolean) => void;
+  /** Subelementos de cada elemento. */
+  childrenOf: Map<string, Task[]>;
+  expanded: Set<string>;
+  onToggleExpand: (id: string, open?: boolean) => void;
   /** Tarea que se está arrastrando (compartida entre grupos). */
   dragRef: React.RefObject<string | null>;
 };
@@ -240,16 +244,38 @@ export function GroupSection(props: Props) {
                 }}
               >
                 {visibleTasks.map((task, i) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    {...props}
-                    dnd={dnd}
-                    showDropLine={dropIndex === i}
-                    onDragOverRow={() => setDropIndex(i)}
-                    onDropRow={() => dropOn(task)}
-                    onDragEnd={() => setDropIndex(null)}
-                  />
+                  <Fragment key={task.id}>
+                    <TaskRow
+                      task={task}
+                      {...props}
+                      dnd={dnd}
+                      showDropLine={dropIndex === i}
+                      onDragOverRow={() => setDropIndex(i)}
+                      onDropRow={() => dropOn(task)}
+                      onDragEnd={() => setDropIndex(null)}
+                    />
+                    {props.expanded.has(task.id) && (
+                      <>
+                        {(props.childrenOf.get(task.id) ?? []).map((sub) => (
+                          <SubitemRow key={sub.id} task={sub} {...props} />
+                        ))}
+                        {!readOnly && !task.id.startsWith("tmp-") && (
+                          <tr className="bg-surface-2/40">
+                            <td />
+                            <td />
+                            <td colSpan={2 + defs.length} className="p-0 pl-8">
+                              <AddTaskRow
+                                groupName={task.title}
+                                placeholder="+ Agregar subelemento"
+                                label={`Nuevo subelemento de ${task.title}`}
+                                onCreate={(title) => handlers.onCreateTask(group.id, title, task.id)}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )}
+                  </Fragment>
                 ))}
                 {visibleTasks.length === 0 && (
                   <tr>
@@ -484,6 +510,7 @@ function TaskRow({
       </td>
       <td className="px-1.5 py-1">
         <div className="flex items-center gap-1">
+          <SubitemToggle task={task} props={props} disabled={pending} />
           <TitleInput task={task} disabled={disabled} onSave={(title) => handlers.onUpdateTask(task, { title })} className={cn(done && "text-muted line-through decoration-1")} />
           <button
             type="button"
@@ -502,6 +529,94 @@ function TaskRow({
       ))}
       <td className="border-l border-line/60 px-1 text-center">
         {!disabled && <Menu label={`Acciones de ${task.title}`} trigger={<IconDots />} items={taskMenu(task, props)} />}
+      </td>
+    </tr>
+  );
+}
+
+/** Botón para ver/ocultar los subelementos (con cuántos están terminados). */
+function SubitemToggle({ task, props, disabled }: { task: Task; props: Props; disabled: boolean }) {
+  const subs = props.childrenOf.get(task.id) ?? [];
+  const open = props.expanded.has(task.id);
+  const done = subs.filter((s) => s.status_id && props.doneIds.has(s.status_id)).length;
+  if (subs.length === 0) {
+    if (props.readOnly || disabled) return <span className="w-6 shrink-0" />;
+    return (
+      <button
+        type="button"
+        onClick={() => props.onToggleExpand(task.id, true)}
+        title="Agregar subelementos"
+        aria-label={`Agregar subelementos a ${task.title}`}
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-subtle opacity-0 hover:bg-surface-3 hover:text-fg focus-visible:opacity-100 group-hover/row:opacity-100"
+      >
+        <IconPlus size={14} />
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => props.onToggleExpand(task.id)}
+      aria-expanded={open}
+      aria-label={`${open ? "Ocultar" : "Ver"} ${subs.length} subelementos de ${task.title} (${done} terminados)`}
+      title={`${done} de ${subs.length} subelementos terminados`}
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-0.5 rounded-md px-1 text-[11px] font-bold tabular-nums",
+        open ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-3",
+      )}
+    >
+      {open ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+      {done}/{subs.length}
+    </button>
+  );
+}
+
+function SubitemRow({ task, ...props }: Props & { task: Task }) {
+  const { doneIds, readOnly, handlers, defs, selected } = props;
+  const pending = task.id.startsWith("tmp-");
+  const disabled = readOnly || pending;
+  const done = Boolean(task.status_id && doneIds.has(task.status_id));
+  const menu: MenuItem[] = [
+    { label: "Abrir detalle", icon: <IconEdit size={16} />, onSelect: () => handlers.onOpenTask(task) },
+    { label: "Duplicar", icon: <IconCopy size={16} />, onSelect: () => handlers.onDuplicateTask(task) },
+    { type: "separator" },
+    { label: "Eliminar", icon: <IconTrash size={16} />, danger: true, onSelect: () => handlers.onDeleteTask(task) },
+  ];
+  return (
+    <tr className={cn("group/row border-t border-line/70 bg-surface-2/40 text-[13px] hover:bg-surface-2", pending && "opacity-60", selected.has(task.id) && "bg-accent-soft/60")}>
+      <td className="px-1 text-center" style={{ boxShadow: "inset 4px 0 0 var(--dot)" }}>
+        {!readOnly && !pending && (
+          <input
+            type="checkbox"
+            checked={selected.has(task.id)}
+            aria-label={`Seleccionar el subelemento ${task.title}`}
+            onChange={(e) => props.onSelect([task.id], e.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
+          />
+        )}
+      </td>
+      <td />
+      <td className="py-1 pl-8 pr-1.5">
+        <div className="flex items-center gap-1">
+          <span aria-hidden className="text-subtle">↳</span>
+          <TitleInput task={task} disabled={disabled} onSave={(title) => handlers.onUpdateTask(task, { title })} className={cn("text-[13px]", done && "text-muted line-through decoration-1")} />
+          <button
+            type="button"
+            onClick={() => handlers.onOpenTask(task)}
+            disabled={pending}
+            className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-accent opacity-0 hover:bg-accent-soft focus-visible:opacity-100 group-hover/row:opacity-100"
+          >
+            Abrir<span className="sr-only"> detalle de {task.title}</span>
+          </button>
+        </div>
+      </td>
+      {defs.map((d) => (
+        <td key={d.key} className="border-l border-line/60 px-1 py-1">
+          <Cell def={d} task={task} props={props} disabled={disabled} />
+        </td>
+      ))}
+      <td className="border-l border-line/60 px-1 text-center">
+        {!disabled && <Menu label={`Acciones del subelemento ${task.title}`} trigger={<IconDots />} items={menu} />}
       </td>
     </tr>
   );
@@ -542,12 +657,27 @@ function TaskCard({ task, ...props }: Props & { task: Task }) {
       <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-muted">
         <span>{assignee ? assignee.full_name || assignee.email : "Sin responsable"}</span>
         <DueBadge value={task.due_date} today={today} done={done} />
+        {(props.childrenOf.get(task.id)?.length ?? 0) > 0 && (
+          <button type="button" onClick={() => handlers.onOpenTask(task)} className="font-semibold text-accent">
+            {props.childrenOf.get(task.id)!.filter((c) => c.status_id && doneIds.has(c.status_id)).length}/{props.childrenOf.get(task.id)!.length} subelementos
+          </button>
+        )}
       </p>
     </li>
   );
 }
 
-function AddTaskRow({ groupName, onCreate }: { groupName: string; onCreate: (title: string) => void }) {
+function AddTaskRow({
+  groupName,
+  onCreate,
+  placeholder = "+ Agregar elemento",
+  label,
+}: {
+  groupName: string;
+  onCreate: (title: string) => void;
+  placeholder?: string;
+  label?: string;
+}) {
   const [value, setValue] = useState("");
   return (
     <form
@@ -565,8 +695,8 @@ function AddTaskRow({ groupName, onCreate }: { groupName: string; onCreate: (tit
         value={value}
         onChange={(e) => setValue(e.target.value)}
         maxLength={500}
-        placeholder="+ Agregar elemento"
-        aria-label={`Nuevo elemento en ${groupName}`}
+        placeholder={placeholder}
+        aria-label={label ?? `Nuevo elemento en ${groupName}`}
         className="h-8 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 text-sm placeholder:text-subtle hover:border-line focus:bg-surface"
       />
       {value.trim() && (
