@@ -56,11 +56,12 @@ do $do$ begin
       for insert to authenticated
       with check (
         bucket_id = 'vetta-files'
-        and private.can_access_board(private.file_board(name))
-        -- La primera carpeta es la empresa dueña del tablero.
+        and private.can_access_board(private.file_board(objects.name))
+        -- La primera carpeta es la empresa dueña del tablero. (objects.name: dentro
+        -- de la subconsulta, "name" a secas sería boards.name.)
         and exists (
           select 1 from public.boards b
-          where b.id = private.file_board(name) and b.workspace_id::text = split_part(name, '/', 1)
+          where b.id = private.file_board(objects.name) and b.workspace_id::text = split_part(objects.name, '/', 1)
         )
       );
   end if;
