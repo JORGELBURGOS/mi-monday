@@ -253,3 +253,20 @@ dialog::backdrop {
     to { opacity: 1; transform: none; }
   }
 }
+
+/* Menú lateral: ancho elegido por la persona (--sb) y opción de esconderlo. */
+@media (min-width: 1024px) {
+  .app-grid {
+    display: grid;
+    grid-template-columns: var(--sb, 248px) minmax(0, 1fr);
+  }
+  html[data-sb-hidden] .app-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-sb-hidden] .app-aside {
+    display: none;
+  }
+  html[data-sb-hidden] .sb-show {
+    display: inline-flex;
+  }
+}

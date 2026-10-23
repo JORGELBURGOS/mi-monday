@@ -4,7 +4,7 @@ import { LogoMark, Wordmark } from "@/components/ui/icons";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1fr_minmax(0,560px)]">
+    <div className="grid min-h-[calc(100dvh/var(--ui-zoom,1))] lg:grid-cols-[1fr_minmax(0,560px)]">
       <aside className="relative hidden overflow-hidden bg-[#1d1b18] p-12 text-[#f3efe8] lg:flex lg:flex-col lg:justify-between">
         <Link href="/" className="flex items-center gap-2.5 text-lg font-extrabold">
           <LogoMark size={32} />

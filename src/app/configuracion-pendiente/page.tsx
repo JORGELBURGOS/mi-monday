@@ -5,7 +5,7 @@ export const metadata = { title: "Configuración pendiente" };
 
 export default function SetupPendingPage() {
   return (
-    <main id="contenido" className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12">
+    <main id="contenido" className="mx-auto flex min-h-[calc(100dvh/var(--ui-zoom,1))] max-w-lg flex-col justify-center px-5 py-12">
       <div className="mb-6 flex items-center gap-2.5 text-lg font-extrabold">
         <LogoMark /> <Wordmark name={siteConfig.name} />
       </div>

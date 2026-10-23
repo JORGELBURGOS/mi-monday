@@ -1,5 +1,6 @@
 "use client";
 
+import { uiZoom } from "@/lib/ui-prefs";
 import { useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { asColor } from "@/lib/constants";
@@ -225,7 +226,7 @@ export function GanttView({
                       }}
                       onPointerMove={(e) => {
                         if (!drag || drag.id !== r.task.id) return;
-                        setDrag({ ...drag, delta: Math.round((e.clientX - drag.x0) / px) });
+                        setDrag({ ...drag, delta: Math.round((e.clientX - drag.x0) / uiZoom() / px) });
                       }}
                       onPointerUp={() => {
                         if (!drag || drag.id !== r.task.id) return;

@@ -23,7 +23,7 @@ export function Dialog({
   title: string;
   description?: string;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -58,13 +58,14 @@ export function Dialog({
         if (e.target === ref.current) onClose();
       }}
       className={cn(
-        "m-auto max-h-[92dvh] w-[calc(100%-1.5rem)] overflow-visible rounded-2xl border border-line bg-surface p-0 text-fg shadow-pop",
+        "m-auto max-h-[calc(92dvh/var(--ui-zoom,1))] w-[calc(100%-1.5rem)] overflow-visible rounded-2xl border border-line bg-surface p-0 text-fg shadow-pop",
         size === "sm" && "max-w-md",
         size === "md" && "max-w-lg",
         size === "lg" && "max-w-3xl",
+        size === "xl" && "max-w-5xl",
       )}
     >
-      <div className="animate-in flex max-h-[92dvh] flex-col">
+      <div className="animate-in flex max-h-[calc(92dvh/var(--ui-zoom,1))] flex-col">
         <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div className="min-w-0">
             <h2 id={titleId} className="text-base font-bold leading-snug">

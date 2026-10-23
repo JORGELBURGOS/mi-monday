@@ -262,7 +262,10 @@ export function LinkItemsCell({
           return { id: i.id, title: i.title, done: Boolean(b?.statuses.find((s) => s.id === i.status_id)?.is_done), href: `/t/${i.board_id}?item=${i.id}`, boardName: b?.name };
         });
   const chosen = ids.map((id) => options.find((o) => o.id === id)).filter((o): o is Pickable => Boolean(o));
-  const blocked = dependency && chosen.some((c) => !c.done);
+  // Aviso solo si este elemento ya arrancó (no está en el estado inicial) y alguna tarea previa no terminó.
+  const me = dependency ? ctx?.tasks.find((t) => t.id === taskId) : undefined;
+  const started = Boolean(me?.status_id && me.status_id !== ctx?.initialStatusId);
+  const blocked = dependency && started && chosen.some((c) => !c.done);
   const noBoard = !dependency && !column.settings.boardId;
 
   return (

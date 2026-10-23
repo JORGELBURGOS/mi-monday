@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { siteConfig } from "@/config/site";
 import { ToastProvider } from "@/components/ui/toast";
+import { PREFS_SCRIPT } from "@/lib/ui-prefs";
 
 export const metadata: Metadata = {
   title: { default: siteConfig.name, template: `%s · ${siteConfig.name}` },
@@ -18,7 +20,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className="h-full antialiased">
+    <html lang="es" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full">
         <a
           href="#contenido"
@@ -26,6 +28,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Saltar al contenido
         </a>
+        {/* Tamaño de pantalla y menú lateral elegidos por la persona (antes de pintar). */}
+        <Script id="vetta-prefs" strategy="beforeInteractive">
+          {PREFS_SCRIPT}
+        </Script>
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

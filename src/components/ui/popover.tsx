@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
+import { rectCss, viewportCss } from "@/lib/ui-prefs";
 
 /**
  * Botón que abre un panel flotante. El panel se monta en <body> con posición
@@ -47,10 +48,10 @@ export function PopoverButton({
   );
 
   const place = useCallback(() => {
-    const r = buttonRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    if (!buttonRef.current) return;
+    // En píxeles CSS de la app (la interfaz puede tener zoom).
+    const r = rectCss(buttonRef.current);
+    const { vw, vh } = viewportCss();
     const w = Math.min(width, vw - 16);
     let left = align === "end" ? r.right - w : align === "center" ? r.left + r.width / 2 - w / 2 : r.left;
     left = Math.max(8, Math.min(left, vw - w - 8));
@@ -134,7 +135,7 @@ export function PopoverButton({
                 close();
               }
             }}
-            style={{ position: "fixed", top: pos?.top ?? -9999, left: pos?.left ?? -9999, width: Math.min(width, typeof window === "undefined" ? width : window.innerWidth - 16), maxHeight: pos?.maxHeight }}
+            style={{ position: "fixed", top: pos?.top ?? -9999, left: pos?.left ?? -9999, width: Math.min(width, typeof window === "undefined" ? width : viewportCss().vw - 16), maxHeight: pos?.maxHeight }}
             className={cn("animate-in z-[55] overflow-y-auto rounded-xl border border-line bg-surface p-2 text-fg shadow-pop", panelClassName)}
           >
             {panel(close)}

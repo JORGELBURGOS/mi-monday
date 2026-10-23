@@ -23,7 +23,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-[calc(100dvh/var(--ui-zoom,1))]">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <span className="flex items-center gap-2.5 whitespace-nowrap text-lg font-extrabold">
           <LogoMark />

@@ -470,12 +470,13 @@ export function BoardView({
       boardId,
       tasks: optimisticTasks,
       doneIds,
+      initialStatusId: statuses[0]?.id,
       linkedItems: new Map(linkedItems.map((i) => [i.id, i])),
       linkedBoards: new Map(linkedBoards.map((b) => [b.id, b])),
       templates: checklistTemplates,
       members,
     }),
-    [workspaceId, boardId, optimisticTasks, doneIds, linkedItems, linkedBoards, checklistTemplates, members],
+    [workspaceId, boardId, optimisticTasks, doneIds, statuses, linkedItems, linkedBoards, checklistTemplates, members],
   );
 
   const labelFilterOptions = optColumns.filter((c) => c.kind === "list" || c.kind === "tags" || c.kind === "checkbox" || c.kind === "person");

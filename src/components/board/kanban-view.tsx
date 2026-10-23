@@ -40,7 +40,7 @@ export function KanbanView({
 
   return (
     <div className="-mx-4 overflow-x-auto px-4 py-6 sm:-mx-8 sm:px-8">
-      <div className="flex min-h-[60vh] gap-3">
+      <div className="flex min-h-[calc(60vh/var(--ui-zoom,1))] gap-3">
         {visibleLanes.map((lane) => {
           const laneTasks = tasks.filter((t) => t.status_id === lane.id);
           const key = lane.id ?? "none";

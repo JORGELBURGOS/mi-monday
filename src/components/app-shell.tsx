@@ -26,6 +26,7 @@ import {
   Wordmark,
 } from "@/components/ui/icons";
 import { Avatar } from "@/components/ui/misc";
+import { SidebarHideButton, SidebarResizer, SidebarShowButton, ZoomControl } from "@/components/sidebar-resizer";
 import type { WorkspaceRole } from "@/lib/constants";
 
 type SidebarWorkspace = { id: string; name: string; role: WorkspaceRole };
@@ -66,7 +67,8 @@ export function AppShell({
   const sidebar = <SidebarContent user={user} workspaces={workspaces} boards={boards} pathname={pathname} unread={unread} superadmin={superadmin} />;
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
+    <div className="app-grid min-h-[calc(100dvh/var(--ui-zoom,1))]">
+      <SidebarShowButton />
       {/* Barra superior en pantallas chicas */}
       <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-surface/95 px-3 backdrop-blur lg:hidden">
         <button
@@ -94,7 +96,10 @@ export function AppShell({
       </div>
 
       {/* Lateral fijo en escritorio */}
-      <aside className="sticky top-0 hidden h-dvh border-r border-line bg-surface lg:block">{sidebar}</aside>
+      <aside className="app-aside sticky top-0 hidden h-[calc(100dvh/var(--ui-zoom,1))] border-r border-line bg-surface lg:block">
+        {sidebar}
+        <SidebarResizer />
+      </aside>
 
       {/* Drawer móvil */}
       {mobileOpen && (
@@ -160,11 +165,14 @@ function SidebarContent({
   const displayName = user.name?.trim() || user.email;
   return (
     <nav aria-label="Principal" className="flex h-full flex-col">
-      <div className="px-4 pb-2 pt-4">
-        <Link href="/inicio" className="flex items-center gap-2.5 rounded-lg px-1 py-1 text-[17px] font-extrabold">
+      <div className="flex items-center gap-1 px-4 pb-2 pt-4">
+        <Link href="/inicio" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 py-1 text-[17px] font-extrabold">
           <LogoMark />
           <Wordmark name={siteConfig.name} className="truncate" />
         </Link>
+        <span className="hidden lg:inline-flex">
+          <SidebarHideButton />
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-4">
@@ -219,6 +227,7 @@ function SidebarContent({
       </div>
 
       <div className="border-t border-line p-3">
+        <ZoomControl />
         <Link
           href="/cuenta"
           className={cn(

@@ -370,8 +370,8 @@ function TimelineCell({ id, value, label, disabled, onChange, cell }: { id?: str
       align="center"
       className={cn(
         "flex w-full items-center justify-center rounded-full text-[12px] font-semibold tabular-nums disabled:opacity-60",
-        cell ? "h-7" : "h-10 rounded-lg border border-line bg-surface",
-        t ? "bg-[var(--accent)] text-[var(--accent-fg)]" : "text-subtle hover:bg-surface-2",
+        cell ? "h-7" : "h-10 rounded-lg border border-line",
+        t ? "bg-[var(--accent)] text-[var(--accent-fg)]" : cn("text-subtle hover:bg-surface-2", !cell && "bg-surface"),
       )}
       panel={(close) => <TimelineEditor id={id} initial={t} onSave={(v) => { onChange(v); close(); }} onCancel={close} />}
     >

@@ -28,6 +28,8 @@ export type CellCtx = {
   /** Elementos de este tablero (para "Depende de"). */
   tasks: Task[];
   doneIds: Set<string>;
+  /** Primer estado del tablero ("sin arrancar"). */
+  initialStatusId?: string;
   /** Elementos de otros tableros que se pueden conectar, por id. */
   linkedItems: Map<string, LinkedItem>;
   linkedBoards: Map<string, LinkedBoard>;

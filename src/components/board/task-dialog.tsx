@@ -18,7 +18,7 @@ import { asColor, type Priority } from "@/lib/constants";
 import { displayName, formatDateTime, relativeTime } from "@/lib/format";
 import { taskTitleSchema } from "@/lib/validation";
 import { setCustomValuesAction } from "@/app/actions/columns";
-import { COMPUTED_KINDS, readValues, type BoardColumn, type CellValue } from "@/lib/columns";
+import { COMPUTED_KINDS, checklistProgress, isChecklist, readValues, stringList, type BoardColumn, type CellValue, type CheckItem } from "@/lib/columns";
 import { builtinLabel, type PriorityLabel } from "@/lib/board-settings";
 import { formulaValue, itemCode, type RowEnv } from "@/lib/row-values";
 import { LabelCell } from "./label-picker";
@@ -27,6 +27,8 @@ import { cn } from "@/lib/cn";
 import { ComputedCell, CustomValueInput } from "./custom-cell";
 import { MirrorCell } from "./rich-cells";
 import { TaskTrace } from "./task-trace";
+import { ChecklistEditor } from "./checklist-editor";
+import { useCellContext } from "./cell-context";
 import type { Group, Member, Status, Task } from "./types";
 
 export function TaskDialog({
@@ -80,7 +82,10 @@ export function TaskDialog({
   const [groupId, setGroupId] = useState(task.group_id);
   const initialValues = readValues(task.custom_values);
   const [values, setValues] = useState<Record<string, CellValue | null>>(initialValues);
-  const [tab, setTab] = useState<"comments" | "trace">("comments");
+  const [tab, setTab] = useState<string>("comments");
+  const ctx = useCellContext();
+  const checklistCols = columns.filter((c) => c.kind === "checklist");
+  const [commentCount, setCommentCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
@@ -97,7 +102,7 @@ export function TaskDialog({
 
   function changedValues() {
     return columns
-      .filter((c) => !COMPUTED_KINDS.includes(c.kind))
+      .filter((c) => !COMPUTED_KINDS.includes(c.kind) && c.kind !== "checklist")
       .filter((c) => JSON.stringify(values[c.id] ?? null) !== JSON.stringify(initialValues[c.id] ?? null))
       .map((c) => c.id);
   }
@@ -145,8 +150,8 @@ export function TaskDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} title={readOnly ? task.title : parent ? "Detalle del subelemento" : "Detalle del elemento"} size="lg">
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
+    <Dialog open onClose={onClose} title={readOnly ? task.title : parent ? "Detalle del subelemento" : "Detalle del elemento"} size="xl">
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4">
           {error && <FormAlert>{error}</FormAlert>}
           {parent && (
@@ -189,12 +194,16 @@ export function TaskDialog({
             />
           )}
           <div className="border-t border-line pt-4">
-            <div role="tablist" aria-label="Actividad del ítem" className="mb-4 flex gap-1 rounded-lg bg-surface-2 p-0.5">
+            <div role="tablist" aria-label="Actividad del ítem" className="mb-4 flex gap-1 overflow-x-auto rounded-lg bg-surface-2 p-0.5">
               {(
                 [
-                  ["comments", "Comentarios"],
+                  ["comments", `Actualizaciones${commentCount ? ` (${commentCount})` : ""}`],
+                  ...checklistCols.map((c) => {
+                    const p = checklistProgress(values[c.id] ?? undefined);
+                    return [`ck:${c.id}`, `${c.name}${p.total ? ` ${p.done}/${p.total}` : ""}`] as [string, string];
+                  }),
                   ["trace", "Recorrido"],
-                ] as const
+                ] as [string, string][]
               ).map(([key, label]) => (
                 <button
                   key={key}
@@ -202,10 +211,10 @@ export function TaskDialog({
                   role="tab"
                   id={`${uid}-tab-${key}`}
                   aria-selected={tab === key}
-                  aria-controls={`${uid}-panel-${key}`}
+                  aria-controls={`${uid}-panel`}
                   onClick={() => setTab(key)}
                   className={cn(
-                    "h-8 flex-1 rounded-md text-[13px] font-semibold",
+                    "h-8 min-w-24 flex-1 whitespace-nowrap rounded-md px-3 text-[13px] font-semibold",
                     tab === key ? "bg-surface text-fg shadow-card" : "text-muted hover:text-fg",
                   )}
                 >
@@ -213,9 +222,32 @@ export function TaskDialog({
                 </button>
               ))}
             </div>
-            <div role="tabpanel" id={`${uid}-panel-${tab}`} aria-labelledby={`${uid}-tab-${tab}`}>
+            <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${tab}`}>
               {tab === "comments" ? (
-                <Comments taskId={task.id} disabled={task.id.startsWith("tmp-")} />
+                <Comments taskId={task.id} disabled={task.id.startsWith("tmp-")} onCount={setCommentCount} />
+              ) : tab.startsWith("ck:") ? (
+                (() => {
+                  const col = checklistCols.find((c) => `ck:${c.id}` === tab);
+                  if (!col) return null;
+                  const items: CheckItem[] = isChecklist(values[col.id] ?? undefined) ? (values[col.id] as CheckItem[]) : [];
+                  return (
+                    <ChecklistEditor
+                      key={col.id}
+                      items={items}
+                      members={members}
+                      templates={ctx?.templates ?? []}
+                      workspaceId={ctx?.workspaceId}
+                      disabled={readOnly || task.id.startsWith("tmp-")}
+                      onChange={(next) => {
+                        setValues((prev) => ({ ...prev, [col.id]: next.length ? next : null }));
+                        // El checklist se guarda en el momento, como en Monday.
+                        void setCustomValuesAction(task.id, { [col.id]: next.length ? next : null }).then((r) => {
+                          if (!r.ok) setError(r.error);
+                        });
+                      }}
+                    />
+                  );
+                })()
               ) : task.id.startsWith("tmp-") ? (
                 <p className="text-sm text-muted">Guardando el ítem…</p>
               ) : (
@@ -272,7 +304,7 @@ export function TaskDialog({
               ))}
             </Select>
           </Field>
-          {columns.map((c) =>
+          {columns.filter((c) => c.kind !== "checklist").map((c) =>
             c.kind === "mirror" ? (
               <div key={c.id}>
                 <p className="mb-1.5 text-sm font-semibold">{c.name}</p>
@@ -315,6 +347,27 @@ export function TaskDialog({
               </Field>
             ),
           )}
+          {columns
+            .filter((c) => c.kind === "dependency")
+            .map((c) => {
+              const blocks = (ctx?.tasks ?? []).filter((t) => stringList(readValues(t.custom_values)[c.id]).includes(task.id));
+              if (!blocks.length) return null;
+              return (
+                <div key={`blocks-${c.id}`}>
+                  <p className="mb-1.5 text-sm font-semibold">Bloquea a</p>
+                  <p className="mb-1.5 text-xs text-muted">Elementos que dependen de este ({c.name}).</p>
+                  <ul className="space-y-1">
+                    {blocks.map((t) => (
+                      <li key={t.id}>
+                        <button type="button" onClick={() => onOpenTask(t.id)} className="w-full truncate rounded-md bg-surface-2 px-2 py-1 text-left text-xs hover:underline" title={t.title}>
+                          {t.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           <dl className="space-y-1 border-t border-line pt-3 text-xs text-muted">
             <div>
               <dt className="inline">Creada: </dt>
@@ -352,7 +405,7 @@ export function TaskDialog({
   );
 }
 
-function Comments({ taskId, disabled }: { taskId: string; disabled: boolean }) {
+function Comments({ taskId, disabled, onCount }: { taskId: string; disabled: boolean; onCount?: (n: number) => void }) {
   const [comments, setComments] = useState<CommentView[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -364,6 +417,7 @@ function Comments({ taskId, disabled }: { taskId: string; disabled: boolean }) {
     const res = await listCommentsAction(taskId);
     if (res.ok) {
       setComments(res.data);
+      onCount?.(res.data.length);
       setLoadError(null);
     } else setLoadError(res.error);
   };
@@ -373,12 +427,15 @@ function Comments({ taskId, disabled }: { taskId: string; disabled: boolean }) {
     let cancelled = false;
     listCommentsAction(taskId).then((res) => {
       if (cancelled) return;
-      if (res.ok) setComments(res.data);
-      else setLoadError(res.error);
+      if (res.ok) {
+        setComments(res.data);
+        onCount?.(res.data.length);
+      } else setLoadError(res.error);
     });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId, disabled]);
 
   return (
@@ -394,8 +451,8 @@ function Comments({ taskId, disabled }: { taskId: string; disabled: boolean }) {
           </button>
         </FormAlert>
       )}
-      {!comments && !loadError && !disabled && <p className="text-sm text-muted">Cargando comentarios…</p>}
-      {comments && comments.length === 0 && <p className="text-sm text-muted">Todavía no hay comentarios.</p>}
+      {!comments && !loadError && !disabled && <p className="text-sm text-muted">Cargando actualizaciones…</p>}
+      {comments && comments.length === 0 && <p className="text-sm text-muted">Todavía no hay actualizaciones.</p>}
       {comments && comments.length > 0 && (
         <ul className="space-y-3">
           {comments.map((c) => (
@@ -455,7 +512,7 @@ function Comments({ taskId, disabled }: { taskId: string; disabled: boolean }) {
             id={`${uid}-new`}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Escribí un comentario…"
+            placeholder="Escribí una actualización…"
             maxLength={5000}
             className="min-h-16"
             onKeyDown={(e) => {
