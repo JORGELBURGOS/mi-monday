@@ -12,6 +12,7 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconChart,
+  IconChecklist,
   IconFlow,
   IconHome,
   IconLock,
@@ -351,6 +352,16 @@ function WorkspaceNode({
               className="text-muted"
             >
               Dashboard
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              href={`/e/${workspace.id}/plantillas`}
+              active={pathname === `/e/${workspace.id}/plantillas`}
+              icon={<IconChecklist size={15} />}
+              className="text-muted"
+            >
+              Plantillas de checklist
             </NavLink>
           </li>
           <li>

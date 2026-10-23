@@ -388,6 +388,8 @@ export function ColumnSettingsDialog({
   allColumns,
   workspaceBoards = [],
   linkedBoards = [],
+  templates = [],
+  statuses = [],
   labelEditing,
   preview,
   onClose,
@@ -399,6 +401,8 @@ export function ColumnSettingsDialog({
   allColumns: BoardColumn[];
   workspaceBoards?: { id: string; name: string }[];
   linkedBoards?: { id: string; name: string; columns: BoardColumn[] }[];
+  templates?: { id: string; name: string }[];
+  statuses?: { id: string; label: string }[];
   labelEditing?: LabelEditing & { labels: Label[] };
   /** Evalúa una fórmula sobre algunos elementos del tablero. */
   preview: (formula: string) => { title: string; result: FormulaResult }[];
@@ -510,6 +514,40 @@ export function ColumnSettingsDialog({
                 ))}
               </Select>
             </Field>
+          </fieldset>
+        )}
+
+        {col?.kind === "checklist" && (
+          <fieldset className="space-y-4 rounded-xl border border-line p-4">
+            <legend className="px-1 text-sm font-semibold">Automatismos del checklist</legend>
+            <Field id="col-tpl" label="Plantilla automática" hint="Cada elemento nuevo del tablero arranca con estos pasos (también los que crean las reglas)">
+              <Select id="col-tpl" value={s.templateId ?? ""} onChange={(e) => set({ templateId: e.target.value || undefined })}>
+                <option value="">Sin plantilla</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {templates.length === 0 && <p className="text-xs text-muted">Todavía no hay plantillas. Guardá un checklist como plantilla desde cualquier elemento o desde Plantillas de la empresa.</p>}
+            <Field id="col-oncomplete" label="Al completar todos los pasos, pasar el elemento a" hint="Corre igual que un cambio de estado manual: dispara las reglas y queda en el recorrido">
+              <Select id="col-oncomplete" value={s.onCompleteStatusId ?? ""} onChange={(e) => set({ onCompleteStatusId: e.target.value || undefined })}>
+                <option value="">No cambiar el estado</option>
+                {statuses.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <label className="flex items-start gap-2.5 text-sm">
+              <input type="checkbox" checked={Boolean(s.completeOnDone)} onChange={(e) => set({ completeOnDone: e.target.checked || undefined })} className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
+              <span>
+                <span className="font-medium">Al terminar el elemento, tildar todos los pasos</span>
+                <span className="block text-xs text-muted">Cuando el estado pasa a uno “terminado”, los pasos pendientes quedan hechos (menos los “No aplica”).</span>
+              </span>
+            </label>
           </fieldset>
         )}
 

@@ -17,6 +17,7 @@ import {
   parseColumn,
   readValues,
   stringList,
+  checklistProgress,
   type CellValue,
   type ColumnKind,
 } from "@/lib/columns";
@@ -211,18 +212,16 @@ export async function setCustomValuesAction(taskId: string, values: Record<strin
   if (!columns || columns.length !== keys.length) return fail("Alguna columna ya no existe. Recargá la página.");
 
   let memberIds: Set<string> | undefined;
-  if (columns.some((c) => c.kind === "person" || c.kind === "people") && board) {
-    const { data: members } = await ctx.supabase.from("workspace_members").select("user_id").eq("workspace_id", board.workspace_id);
-    memberIds = new Set((members ?? []).map((m) => m.user_id));
-  }
-
-  if (columns.some((c) => c.kind === "people") && board && !memberIds) {
+  if (columns.some((c) => c.kind === "person" || c.kind === "people" || c.kind === "checklist") && board) {
     const { data: members } = await ctx.supabase.from("workspace_members").select("user_id").eq("workspace_id", board.workspace_id);
     memberIds = new Set((members ?? []).map((m) => m.user_id));
   }
   const filePrefix = board ? `${board.workspace_id}/${task.board_id}/${task.id}/` : undefined;
 
-  const next: Record<string, CellValue> = { ...readValues(task.custom_values) };
+  const prev = readValues(task.custom_values);
+  const next: Record<string, CellValue> = { ...prev };
+  // Checklists que se completan con este cambio y tienen "al completar, pasar a estado".
+  let completeStatus: string | undefined;
   for (const raw of columns) {
     const column = parseColumn(raw);
     const res = normalizeValue(column, values[column.id], memberIds, filePrefix);
@@ -236,13 +235,25 @@ export async function setCustomValuesAction(taskId: string, values: Record<strin
       const { count } = await ctx.supabase.from("tasks").select("id", { count: "exact", head: true }).eq("board_id", target).in("id", ids);
       if ((count ?? 0) !== ids.length) return fail(`${column.name}: algún elemento vinculado ya no existe.`);
     }
+    if (column.kind === "checklist" && column.settings.onCompleteStatusId) {
+      const before = checklistProgress(prev[column.id]);
+      const after = checklistProgress(res.value ?? undefined);
+      if (after.total > 0 && after.done === after.total && (before.total === 0 || before.done < before.total)) {
+        completeStatus = column.settings.onCompleteStatusId;
+      }
+    }
     if (res.value === null) delete next[column.id];
     else next[column.id] = res.value;
   }
 
-  const { data, error } = await ctx.supabase.from("tasks").update({ custom_values: next }).eq("id", taskId).select("id");
+  const { data, error } = await ctx.supabase.from("tasks").update({ custom_values: next }).eq("id", taskId).select("id, status_id");
   if (error) return fromDb(error);
   if (!data?.length) return fail("La tarea ya no existe o no tenés acceso.");
+  // Cambio de estado aparte, para que corran las reglas y el historial de estado.
+  if (completeStatus && data[0].status_id !== completeStatus) {
+    const { data: st } = await ctx.supabase.from("board_statuses").select("id").eq("id", completeStatus).eq("board_id", task.board_id).maybeSingle();
+    if (st) await ctx.supabase.from("tasks").update({ status_id: st.id }).eq("id", taskId);
+  }
   refresh();
   return ok(undefined);
 }

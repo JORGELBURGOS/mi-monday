@@ -164,3 +164,6 @@ export const IconGantt = (p: IconProps) => (
 export const IconChart = (p: IconProps) => (
   <svg {...base(p)}><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" /></svg>
 );
+export const IconChecklist = (p: IconProps) => (
+  <svg {...base(p)}><path d="m4 6 1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9" /></svg>
+);

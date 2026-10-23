@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
 import type { WorkspaceRole } from "@/lib/constants";
 import { displayName } from "@/lib/format";
-import { NON_RULE_KINDS, parseColumn, type BoardColumn } from "@/lib/columns";
+import { NON_RULE_KINDS, parseColumn, type BoardColumn, type ChecklistTemplate } from "@/lib/columns";
+export type { ChecklistTemplate } from "@/lib/columns";
 
 /*
  * Capa de acceso a datos. Todas las consultas usan la sesión del usuario, así
@@ -138,7 +139,23 @@ export type BoardData = {
   /** Tableros conectados por columnas "Conectar tableros", con sus elementos. */
   linkedBoards: { id: string; name: string; statuses: Status[]; columns: BoardColumn[] }[];
   linkedItems: Pick<Task, "id" | "title" | "board_id" | "status_id" | "due_date" | "priority" | "assignee_id" | "custom_values">[];
+  /** Plantillas de checklist de la empresa. */
+  checklistTemplates: ChecklistTemplate[];
 };
+
+
+export async function getChecklistTemplates(workspaceId: string): Promise<ChecklistTemplate[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("checklist_templates").select("id, name, items, created_by").eq("workspace_id", workspaceId).order("name");
+  return (data ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    created_by: t.created_by,
+    items: (Array.isArray(t.items) ? t.items : [])
+      .filter((i): i is { text: string; header?: boolean; note?: string } => Boolean(i) && typeof i === "object" && !Array.isArray(i) && typeof (i as { text?: unknown }).text === "string")
+      .map((i) => ({ text: i.text, ...(i.header ? { header: true } : {}), ...(typeof i.note === "string" && i.note ? { note: i.note } : {}) })),
+  }));
+}
 
 export async function getBoardData(boardId: string, userId: string): Promise<BoardData | null> {
   const supabase = await createClient();
@@ -161,7 +178,7 @@ export async function getBoardData(boardId: string, userId: string): Promise<Boa
 
   // Conectar tableros: se cargan los tableros vinculados que la persona puede ver (RLS).
   const linkedIds = [...new Set(parsedColumns.filter((c) => c.kind === "connect" && c.settings.boardId).map((c) => c.settings.boardId!))];
-  const [wsBoards, lBoards, lStatuses, lColumns, lItems] = await Promise.all([
+  const [wsBoards, lBoards, lStatuses, lColumns, lItems, templates] = await Promise.all([
     supabase.from("boards").select("id, name").eq("workspace_id", board.workspace_id).eq("is_archived", false).order("name"),
     linkedIds.length ? supabase.from("boards").select("id, name").in("id", linkedIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     linkedIds.length ? supabase.from("board_statuses").select("*").in("board_id", linkedIds).order("position") : Promise.resolve({ data: [] as Status[] }),
@@ -169,6 +186,7 @@ export async function getBoardData(boardId: string, userId: string): Promise<Boa
     linkedIds.length
       ? supabase.from("tasks").select("id, title, board_id, status_id, due_date, priority, assignee_id, custom_values").in("board_id", linkedIds).is("parent_id", null).order("position").limit(3000)
       : Promise.resolve({ data: [] }),
+    parsedColumns.some((c) => c.kind === "checklist") ? getChecklistTemplates(board.workspace_id) : Promise.resolve([] as ChecklistTemplate[]),
   ]);
 
   return {
@@ -187,6 +205,7 @@ export async function getBoardData(boardId: string, userId: string): Promise<Boa
       columns: ((lColumns.data ?? []) as Parameters<typeof parseColumn>[0][]).filter((x) => x.board_id === b.id).map(parseColumn),
     })),
     linkedItems: (lItems.data ?? []) as BoardData["linkedItems"],
+    checklistTemplates: templates,
   };
 }
 

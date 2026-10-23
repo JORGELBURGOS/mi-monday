@@ -228,6 +228,10 @@ function describeEvent(e: TraceEvent): string {
       return "Se eliminó";
     case "automation_limit":
       return "Una cadena de reglas se detuvo para evitar un ciclo infinito";
+    case "checklist_item":
+      return `${d.done ? "Tildó" : "Destildó"} «${str(d.item) ?? "paso"}»${str(d.column) ? ` · ${str(d.column)}` : ""}`;
+    case "checklist_completed":
+      return `Checklist completo${str(d.column) ? ` «${str(d.column)}»` : ""}${typeof d.total === "number" ? ` (${d.total} pasos)` : ""}`;
     default:
       return e.kind;
   }

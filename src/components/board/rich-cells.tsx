@@ -6,20 +6,20 @@ import { cn } from "@/lib/cn";
 import { asColor } from "@/lib/constants";
 import { displayName } from "@/lib/format";
 import { PopoverButton } from "@/components/ui/popover";
+import { Dialog } from "@/components/ui/dialog";
+import { ChecklistEditor } from "./checklist-editor";
 import { Avatar } from "@/components/ui/misc";
-import { IconAlert, IconCheck, IconLink, IconPaperclip, IconPlus, IconSearch, IconTrash, IconX } from "@/components/ui/icons";
+import { IconAlert, IconCheck, IconLink, IconPaperclip, IconPlus, IconSearch, IconTrash } from "@/components/ui/icons";
 import { browserClient, FILES_BUCKET } from "@/lib/supabase/browser";
 import {
   checklistProgress,
   isChecklist,
   isFileList,
-  newOptionId,
   readValues,
   stringList,
   valueLabel,
   type BoardColumn,
   type CellValue,
-  type CheckItem,
   type FileRef,
 } from "@/lib/columns";
 import { useCellContext, type LinkedItem } from "./cell-context";
@@ -198,80 +198,42 @@ function PeoplePanel({ ids, members, onChange }: { ids: string[]; members: Membe
 
 /* ----------------------------------------------------------------- checklist */
 
-export function ChecklistCell({ value, label, disabled, cell, onChange }: Base & { value: CellValue | undefined }) {
+export function ChecklistCell({ value, label, disabled, cell, members, taskId, onChange }: Base & { value: CellValue | undefined; members: Member[]; taskId?: string }) {
   const items = isChecklist(value) ? value : [];
+  const ctx = useCellContext();
+  const [open, setOpen] = useState(false);
+  const title = taskId ? ctx?.tasks.find((t) => t.id === taskId)?.title : undefined;
   const { done, total } = checklistProgress(value);
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
-    <PopoverButton
-      label={`${label}: ${done} de ${total} pasos. Abrir`}
-      width={320}
-      className={trigger(cell)}
-      panel={() => <ChecklistPanel items={items} disabled={disabled} onChange={onChange} />}
-    >
-      {total === 0 ? (
-        <span className="text-subtle">{cell ? "" : "Sin pasos"}</span>
-      ) : (
-        <span className="flex w-full items-center gap-2">
-          <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-3">
-            <span className={cn("block h-full rounded-full", pct === 100 ? "bg-success" : "bg-accent")} style={{ width: `${pct}%` }} />
+    <>
+      <button type="button" aria-label={`${label}: ${done} de ${total} pasos. Abrir checklist`} aria-haspopup="dialog" onClick={() => setOpen(true)} className={trigger(cell)}>
+        {total === 0 ? (
+          <span className="text-subtle">{cell ? "" : disabled ? "Sin pasos" : "Agregar pasos"}</span>
+        ) : (
+          <span className="flex w-full items-center gap-2">
+            <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-3">
+              <span className={cn("block h-full rounded-full", pct === 100 ? "bg-success" : "bg-accent")} style={{ width: `${pct}%` }} />
+            </span>
+            <span className="shrink-0 text-xs font-semibold tabular-nums text-muted">
+              {done}/{total}
+            </span>
           </span>
-          <span className="shrink-0 text-xs font-semibold tabular-nums text-muted">
-            {done}/{total}
-          </span>
-        </span>
+        )}
+      </button>
+      {open && (
+        <Dialog open onClose={() => setOpen(false)} title={label} description={title} size="lg">
+          <ChecklistEditor
+            items={items}
+            members={members.length ? members : (ctx?.members ?? [])}
+            templates={ctx?.templates ?? []}
+            workspaceId={ctx?.workspaceId}
+            disabled={disabled}
+            onChange={(next) => onChange(next.length ? next : null)}
+          />
+        </Dialog>
       )}
-    </PopoverButton>
-  );
-}
-
-function ChecklistPanel({ items, disabled, onChange }: { items: CheckItem[]; disabled?: boolean; onChange: (v: CellValue | null) => void }) {
-  const [list, setList] = useState(items);
-  const [text, setText] = useState("");
-  const save = (next: CheckItem[]) => {
-    setList(next);
-    onChange(next.length ? next : null);
-  };
-  return (
-    <div className="space-y-2">
-      {list.length === 0 && <p className="px-1 text-sm text-muted">Agregá los pasos de este elemento.</p>}
-      <ul className="max-h-72 space-y-0.5 overflow-y-auto">
-        {list.map((i) => (
-          <li key={i.id} className="group/i flex items-center gap-2 rounded-md px-1 py-1 hover:bg-surface-2">
-            <input
-              type="checkbox"
-              checked={i.done}
-              disabled={disabled}
-              aria-label={i.text}
-              onChange={(e) => save(list.map((x) => (x.id === i.id ? { ...x, done: e.target.checked } : x)))}
-              className="h-4 w-4 shrink-0 accent-[var(--accent)]"
-            />
-            <span className={cn("min-w-0 flex-1 text-sm", i.done && "text-muted line-through")}>{i.text}</span>
-            {!disabled && (
-              <button type="button" onClick={() => save(list.filter((x) => x.id !== i.id))} aria-label={`Quitar ${i.text}`} className="rounded p-0.5 text-subtle opacity-0 hover:text-danger focus-visible:opacity-100 group-hover/i:opacity-100">
-                <IconX size={13} />
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
-      {!disabled && (
-        <form
-          className="flex gap-1.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!text.trim()) return;
-            save([...list, { id: newOptionId(), text: text.trim().slice(0, 200), done: false }]);
-            setText("");
-          }}
-        >
-          <input data-autofocus value={text} onChange={(e) => setText(e.target.value)} maxLength={200} placeholder="Nuevo paso y Enter" aria-label="Nuevo paso" className="h-8 min-w-0 flex-1 rounded-md border border-line bg-surface px-2 text-sm" />
-          <button type="submit" disabled={!text.trim()} className="h-8 rounded-md bg-accent px-2.5 text-xs font-semibold text-accent-fg disabled:opacity-50">
-            Agregar
-          </button>
-        </form>
-      )}
-    </div>
+    </>
   );
 }
 

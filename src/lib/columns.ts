@@ -147,6 +147,12 @@ export type ColumnSettings = {
   connectColumnId?: string;
   /** Espejo: qué dato mostrar de los elementos conectados (status, due, c:<id>…). */
   mirrorKey?: string;
+  /** Checklist: plantilla que reciben los elementos nuevos. */
+  templateId?: string;
+  /** Checklist: al pasar el elemento a un estado terminado, tildar todo. */
+  completeOnDone?: boolean;
+  /** Checklist: al completarse, pasar el elemento a este estado. */
+  onCompleteStatusId?: string;
 };
 
 export const columnSettingsSchema = z
@@ -162,6 +168,9 @@ export const columnSettingsSchema = z
     boardId: z.uuid().optional(),
     connectColumnId: z.uuid().optional(),
     mirrorKey: z.string().max(40).optional(),
+    templateId: z.uuid().optional(),
+    completeOnDone: z.boolean().optional(),
+    onCompleteStatusId: z.uuid().optional(),
   })
   .strip();
 
@@ -172,7 +181,45 @@ export type BoardColumn = Omit<Tables<"board_columns">, "kind" | "options" | "se
 };
 
 export type FileRef = { id: string; name: string; path: string; size: number; type: string };
-export type CheckItem = { id: string; text: string; done: boolean };
+/** Estado de un paso del checklist (además de tildado / sin tildar). */
+export const CHECK_STATUSES = ["todo", "doing", "blocked", "na"] as const;
+export type CheckStatus = (typeof CHECK_STATUSES)[number];
+export const CHECK_STATUS_LABELS: Record<CheckStatus, { label: string; color: string }> = {
+  todo: { label: "Pendiente", color: "gray" },
+  doing: { label: "En curso", color: "blue" },
+  blocked: { label: "Bloqueado", color: "red" },
+  na: { label: "No aplica", color: "violet" },
+};
+export type CheckItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  /** Sección (encabezado): agrupa los pasos que siguen, no se tilda. */
+  header?: boolean;
+  status?: CheckStatus;
+  assignee?: string;
+  due?: string;
+  note?: string;
+};
+/** Plantilla de checklist de la empresa. */
+export type ChecklistTemplate = { id: string; name: string; items: { text: string; header?: boolean; note?: string }[]; created_by: string | null };
+
+/** Normaliza un paso leído de la base o recibido del cliente. */
+export function cleanCheckItem(i: Partial<CheckItem> & { text: string }): CheckItem {
+  const out: CheckItem = { id: String(i.id || newOptionId()).slice(0, 40), text: String(i.text).trim().slice(0, 300), done: Boolean(i.done) };
+  if (i.header) out.header = true;
+  if (i.status && (CHECK_STATUSES as readonly string[]).includes(i.status) && i.status !== "todo") out.status = i.status;
+  if (typeof i.assignee === "string" && i.assignee) out.assignee = i.assignee;
+  if (typeof i.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(i.due)) out.due = i.due;
+  if (typeof i.note === "string" && i.note.trim()) out.note = i.note.trim().slice(0, 1000);
+  if (out.header) {
+    out.done = false;
+    delete out.status;
+    delete out.assignee;
+    delete out.due;
+  }
+  return out;
+}
 export type CellValue = string | number | boolean | string[] | FileRef[] | CheckItem[];
 
 export function isFileList(v: unknown): v is FileRef[] {
@@ -184,8 +231,9 @@ export function isChecklist(v: unknown): v is CheckItem[] {
 export function stringList(v: CellValue | undefined): string[] {
   return Array.isArray(v) ? (v as unknown[]).filter((x): x is string => typeof x === "string") : [];
 }
+/** Avance: cuentan los pasos (no las secciones) y no cuentan los "No aplica". */
 export function checklistProgress(v: CellValue | undefined): { done: number; total: number } {
-  const list = isChecklist(v) ? v : [];
+  const list = (isChecklist(v) ? v : []).filter((i) => !i.header && i.status !== "na");
   return { done: list.filter((i) => i.done).length, total: list.length };
 }
 export type CustomValues = Record<string, CellValue>;
@@ -221,7 +269,7 @@ export function readValues(json: Json | null | undefined): CustomValues {
     else if (Array.isArray(v)) {
       if (v.length && v.every((x) => x && typeof x === "object")) {
         if (isFileList(v)) out[k] = v.map((f) => ({ id: String(f.id ?? f.path), name: String(f.name), path: String(f.path), size: Number(f.size) || 0, type: String(f.type ?? "") }));
-        else if (isChecklist(v)) out[k] = v.map((i) => ({ id: String(i.id ?? ""), text: String(i.text), done: Boolean(i.done) }));
+        else if (isChecklist(v)) out[k] = v.map((i) => cleanCheckItem(i));
       } else out[k] = v.filter((x): x is string => typeof x === "string");
     }
   }
@@ -340,8 +388,10 @@ export function normalizeValue(
     }
     case "checklist": {
       if (!isChecklist(raw)) return { ok: false, error: "Checklist inválido." };
-      if (raw.length > 100) return { ok: false, error: "Hasta 100 pasos." };
-      const items = raw.map((i) => ({ id: String(i.id || newOptionId()).slice(0, 40), text: String(i.text).trim().slice(0, 200), done: Boolean(i.done) })).filter((i) => i.text);
+      if (raw.length > 300) return { ok: false, error: "Hasta 300 pasos." };
+      const items = raw.map(cleanCheckItem).filter((i) => i.text);
+      if (memberIds && items.some((i) => i.assignee && !memberIds.has(i.assignee))) return { ok: false, error: "El responsable del paso tiene que ser usuario de la empresa." };
+      if (items.some((i) => i.assignee && !z.uuid().safeParse(i.assignee).success)) return { ok: false, error: "Responsable inválido." };
       return { ok: true, value: items.length ? items : null };
     }
     case "files": {

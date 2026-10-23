@@ -8,6 +8,7 @@ import { uuidSchema } from "@/lib/validation";
 import { cn } from "@/lib/cn";
 import { asColor } from "@/lib/constants";
 import { displayName } from "@/lib/format";
+import { CHECK_STATUS_LABELS, isChecklist, readValues, type CheckStatus } from "@/lib/columns";
 import { Avatar, Card, EmptyState, PageHeader } from "@/components/ui/misc";
 import { IconChart } from "@/components/ui/icons";
 
@@ -36,12 +37,13 @@ export default async function DashboardPage({ params }: { params: Promise<{ work
   const supabase = await createClient();
   const { data: boards } = await supabase.from("boards").select("id, name").eq("workspace_id", workspaceId).eq("is_archived", false).order("name");
   const ids = (boards ?? []).map((b) => b.id);
-  const [{ data: statuses }, { data: tasks }, members] = await Promise.all([
+  const [{ data: statuses }, { data: tasks }, members, { data: ckCols }] = await Promise.all([
     ids.length ? supabase.from("board_statuses").select("id, board_id, label, color, is_done, position").in("board_id", ids).order("position") : Promise.resolve({ data: [] }),
     ids.length
-      ? supabase.from("tasks").select("id, title, board_id, status_id, due_date, assignee_id, parent_id").in("board_id", ids).is("parent_id", null).limit(10000)
+      ? supabase.from("tasks").select("id, title, board_id, status_id, due_date, assignee_id, parent_id, custom_values").in("board_id", ids).is("parent_id", null).limit(10000)
       : Promise.resolve({ data: [] }),
     getWorkspaceMembers(workspaceId),
+    ids.length ? supabase.from("board_columns").select("id, board_id, name").in("board_id", ids).eq("kind", "checklist") : Promise.resolve({ data: [] as { id: string; board_id: string; name: string }[] }),
   ]);
 
   const st = statuses ?? [];
@@ -83,6 +85,20 @@ export default async function DashboardPage({ params }: { params: Promise<{ work
     .sort((a, b) => b.open - a.open);
   const unassigned = open.filter((t) => !t.assignee_id).length;
   const maxLoad = Math.max(1, ...perPerson.map((p) => p.open), unassigned);
+
+  // Pasos de checklist asignados a mí y sin hacer (en elementos sin terminar).
+  const mySteps: { key: string; text: string; due?: string; status?: string; task: (typeof all)[number] }[] = [];
+  for (const t of open) {
+    const values = readValues(t.custom_values);
+    for (const c of (ckCols ?? []).filter((c) => c.board_id === t.board_id)) {
+      const list = values[c.id];
+      if (!isChecklist(list)) continue;
+      for (const i of list) {
+        if (i.assignee === user.id && !i.done && !i.header && i.status !== "na") mySteps.push({ key: `${t.id}-${i.id}`, text: i.text, due: i.due, status: i.status, task: t });
+      }
+    }
+  }
+  mySteps.sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999"));
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
@@ -161,6 +177,29 @@ export default async function DashboardPage({ params }: { params: Promise<{ work
               )}
             </Card>
           </div>
+
+          {mySteps.length > 0 && (
+            <Card className="p-0">
+              <h2 className="flex items-center justify-between border-b border-line px-5 py-3.5 text-sm font-bold">
+                Mis pasos de checklist pendientes
+                <span className="text-xs font-normal text-muted">{mySteps.length}</span>
+              </h2>
+              <ul className="divide-y divide-line">
+                {mySteps.slice(0, 15).map((p) => (
+                  <li key={p.key} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+                    <span className={cn("w-14 shrink-0 text-xs font-semibold tabular-nums", p.due && p.due < today ? "text-danger" : "text-muted")}>{p.due ? shortDate(p.due) : ""}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {p.text}
+                      {p.status && p.status !== "todo" && <span className="ml-2 text-xs text-muted">· {CHECK_STATUS_LABELS[p.status as CheckStatus]?.label}</span>}
+                    </span>
+                    <Link href={`/t/${p.task.board_id}?item=${p.task.id}`} className="max-w-48 shrink-0 truncate text-xs text-muted hover:underline">
+                      {p.task.title} · {boardName.get(p.task.board_id)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <TaskList title="Vencidos" empty="No hay elementos vencidos. ¡Bien!" tasks={overdue.slice(0, 12)} boardName={boardName} members={members} tone="danger" total={overdue.length} />

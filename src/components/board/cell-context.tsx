@@ -4,7 +4,8 @@ import { createContext, useContext } from "react";
 import type { Json } from "@/lib/database.types";
 import type { BoardColumn } from "@/lib/columns";
 import type { Priority } from "@/lib/constants";
-import type { Status, Task } from "./types";
+import type { ChecklistTemplate } from "@/lib/columns";
+import type { Member, Status, Task } from "./types";
 
 /** Elemento de otro tablero vinculado con "Conectar tableros". */
 export type LinkedItem = {
@@ -30,6 +31,9 @@ export type CellCtx = {
   /** Elementos de otros tableros que se pueden conectar, por id. */
   linkedItems: Map<string, LinkedItem>;
   linkedBoards: Map<string, LinkedBoard>;
+  /** Plantillas de checklist de la empresa. */
+  templates: ChecklistTemplate[];
+  members: Member[];
 };
 
 export const CellContext = createContext<CellCtx | null>(null);

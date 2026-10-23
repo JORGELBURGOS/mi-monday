@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChecklistTemplate } from "@/lib/columns";
 import Link from "next/link";
 import { useCallback, useMemo, useOptimistic, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { createTaskAction, deleteTaskAction, deleteTasksAction, duplicateTaskAction, duplicateTasksAction, moveTaskAction, moveTasksAction, updateTaskAction, updateTasksAction } from "@/app/actions/tasks";
@@ -50,6 +51,7 @@ export function BoardView({
   workspaceBoards,
   linkedBoards,
   linkedItems,
+  checklistTemplates,
   boardName,
   view,
   statuses,
@@ -68,6 +70,7 @@ export function BoardView({
   workspaceBoards: { id: string; name: string }[];
   linkedBoards: LinkedBoard[];
   linkedItems: LinkedItem[];
+  checklistTemplates: ChecklistTemplate[];
   boardName: string;
   view: View;
   statuses: Status[];
@@ -469,8 +472,10 @@ export function BoardView({
       doneIds,
       linkedItems: new Map(linkedItems.map((i) => [i.id, i])),
       linkedBoards: new Map(linkedBoards.map((b) => [b.id, b])),
+      templates: checklistTemplates,
+      members,
     }),
-    [workspaceId, boardId, optimisticTasks, doneIds, linkedItems, linkedBoards],
+    [workspaceId, boardId, optimisticTasks, doneIds, linkedItems, linkedBoards, checklistTemplates, members],
   );
 
   const labelFilterOptions = optColumns.filter((c) => c.kind === "list" || c.kind === "tags" || c.kind === "checkbox" || c.kind === "person");
@@ -752,6 +757,8 @@ export function BoardView({
           allColumns={optColumns}
           workspaceBoards={workspaceBoards.filter((b) => b.id !== boardId)}
           linkedBoards={linkedBoards}
+          templates={checklistTemplates}
+          statuses={statuses}
           labelEditing={
             settingsDef.column && LABEL_KINDS.includes(settingsDef.column.kind)
               ? { ...labelEditors.column(settingsDef.column)!, labels: settingsDef.column.options }

@@ -146,7 +146,7 @@ export function CustomValueInput({ column, value, members, onChange, label, disa
     case "people":
       return <PeopleCell value={value} members={members} label={label} disabled={disabled} cell={cell} onChange={onChange} />;
     case "checklist":
-      return <ChecklistCell value={value} label={label} disabled={disabled} cell={cell} onChange={onChange} />;
+      return <ChecklistCell value={value} members={members} taskId={taskId} label={label} disabled={disabled} cell={cell} onChange={onChange} />;
     case "dependency":
     case "connect":
       return <LinkItemsCell column={column} value={value} taskId={taskId} label={label} disabled={disabled} cell={cell} onChange={onChange} />;

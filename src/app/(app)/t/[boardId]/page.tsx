@@ -73,6 +73,7 @@ export default async function BoardPage({ params, searchParams }: Props) {
         workspaceBoards={data.workspaceBoards}
         linkedBoards={data.linkedBoards}
         linkedItems={data.linkedItems}
+        checklistTemplates={data.checklistTemplates}
         boardName={board.name}
         view={view}
         settings={parseBoardSettings(board.settings)}
