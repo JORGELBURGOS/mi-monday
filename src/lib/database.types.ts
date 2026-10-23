@@ -151,26 +151,43 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          created_by: string | null
           email: string | null
           full_name: string | null
           id: string
+          is_platform_admin: boolean
+          must_change_password: boolean
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           email?: string | null
           full_name?: string | null
           id: string
+          is_platform_admin?: boolean
+          must_change_password?: boolean
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
+          is_platform_admin?: boolean
+          must_change_password?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_comments: {
         Row: {
@@ -437,6 +454,7 @@ export type Database = {
       }
     }
     Functions: {
+      admin_issue_provision_token: { Args: never; Returns: string }
       respond_to_invitation: {
         Args: { p_accept: boolean; p_invitation_id: string }
         Returns: string

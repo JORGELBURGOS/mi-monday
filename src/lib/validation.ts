@@ -28,19 +28,6 @@ export const signInSchema = z.object({
   password: z.string().min(1, { message: "Ingresá tu contraseña." }),
 });
 
-export const signUpSchema = z
-  .object({
-    fullName: z.string().trim().min(1, { message: "Ingresá tu nombre." }).max(120, { message: "Máximo 120 caracteres." }),
-    email: emailSchema,
-    password: passwordSchema,
-    confirm: z.string(),
-  })
-  .refine((d) => d.password === d.confirm, { path: ["confirm"], message: "Las contraseñas no coinciden." });
-
-export const newPasswordSchema = z
-  .object({ password: passwordSchema, confirm: z.string() })
-  .refine((d) => d.password === d.confirm, { path: ["confirm"], message: "Las contraseñas no coinciden." });
-
 export const workspaceSchema = z.object({
   name: z.string().trim().min(1, { message: "El nombre es obligatorio." }).max(80, { message: "Máximo 80 caracteres." }),
   description: optionalText(500, "Descripción"),
@@ -104,11 +91,6 @@ export const commentSchema = z
   .trim()
   .min(1, { message: "Escribí un comentario." })
   .max(5000, { message: "Máximo 5000 caracteres." });
-
-export const inviteSchema = z.object({
-  email: emailSchema,
-  role: z.enum(["member", "admin"], { message: "Rol inválido." }),
-});
 
 export const roleSchema = z.enum(["owner", "admin", "member"], { message: "Rol inválido." });
 

@@ -4,7 +4,7 @@ import type { Database } from "@/lib/database.types";
 import { getSupabaseEnv } from "@/lib/env";
 
 /** Rutas accesibles sin sesión. */
-const PUBLIC_PATHS = ["/", "/login", "/registro", "/recuperar", "/auth", "/configuracion-pendiente"];
+const PUBLIC_PATHS = ["/", "/login", "/recuperar", "/configuracion-pendiente"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)));
@@ -48,7 +48,7 @@ export async function updateSession(request: NextRequest) {
     return redirect;
   }
 
-  if (isSignedIn && (pathname === "/login" || pathname === "/registro" || pathname === "/")) {
+  if (isSignedIn && (pathname === "/login" || pathname === "/")) {
     const home = request.nextUrl.clone();
     home.pathname = "/inicio";
     home.search = "";

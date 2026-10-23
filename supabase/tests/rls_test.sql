@@ -54,7 +54,7 @@ begin
     insert into auth.users (instance_id, id, aud, role, email, raw_user_meta_data, created_at, updated_at)
     select '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'reuso@example.test',
            jsonb_build_object('vetta_provision_token', t.token), now(), now()
-    from private.provision_tokens t limit 1;
+    from private.provision_tokens t where t.used_at is not null limit 1;
     if not found then blocked := true; end if;
   exception when others then blocked := true; end;
   perform pg_temp.check(blocked, 'un token de alta no se puede reutilizar');
@@ -113,8 +113,8 @@ begin
   begin update public.profiles set must_change_password = false where id = c; exception when others then blocked := true; end;
   perform pg_temp.check(blocked, 'nadie puede saltear el cambio obligatorio de contraseña');
   blocked := false;
-  begin perform public.admin_revoke_sessions(a); exception when others then blocked := true; end;
-  perform pg_temp.check(blocked, 'un usuario no puede cerrar sesiones ajenas');
+  begin perform public.admin_issue_provision_token(); exception when others then blocked := true; end;
+  perform pg_temp.check(blocked, 'un usuario no puede emitir tokens de alta');
   blocked := false;
   begin insert into public.tasks (board_id, group_id, title) values (bd, grp, 'intrusa'); exception when others then blocked := true; end;
   perform pg_temp.check(blocked, 'C no puede crear tareas');
@@ -155,6 +155,21 @@ begin
 
   insert into public.task_comments (task_id, body) values (tk, 'Comentario de B') returning id into cm;
   perform pg_temp.check((select author_id from public.task_comments where id = cm) = b, 'el autor del comentario es quien lo escribe');
+  execute 'reset role';
+
+  -- ---------------------------------------------------------------- contraseña pendiente
+  -- Simula un reseteo hecho por un administrador: la cuenta queda sin acceso a datos.
+  execute 'reset role';
+  update public.profiles set must_change_password = true where id = b;
+  perform pg_temp.act_as(b, 'rls-b@example.test');
+  perform pg_temp.check(not exists (select 1 from public.tasks where id = tk), 'con contraseña pendiente no se ven tareas');
+  perform pg_temp.check(not exists (select 1 from public.workspaces where id = ws), 'con contraseña pendiente no se ven espacios');
+  update public.tasks set title = 'intento' where id = tk; get diagnostics n = row_count;
+  perform pg_temp.check(n = 0, 'con contraseña pendiente no se puede editar');
+  execute 'reset role';
+  update public.profiles set must_change_password = false where id = b;
+  perform pg_temp.act_as(b, 'rls-b@example.test');
+  perform pg_temp.check(exists (select 1 from public.tasks where id = tk), 'tras cambiar la contraseña vuelve el acceso');
   execute 'reset role';
 
   -- ---------------------------------------------------------------- A de nuevo

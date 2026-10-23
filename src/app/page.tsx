@@ -30,11 +30,8 @@ export default function LandingPage() {
           <Wordmark name={siteConfig.name} />
         </span>
         <nav className="flex items-center gap-2" aria-label="Cuenta">
-          <Link href="/login" className={buttonClasses("ghost", "md", "hidden sm:inline-flex")}>
+          <Link href="/login" className={buttonClasses("primary", "md")}>
             Iniciar sesión
-          </Link>
-          <Link href="/registro" className={buttonClasses("primary", "md")}>
-            Crear cuenta
           </Link>
         </nav>
       </header>
@@ -49,13 +46,13 @@ export default function LandingPage() {
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted">{siteConfig.description}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/registro" className={buttonClasses("primary", "md", "h-12 px-6 text-base")}>
-              Empezar ahora
-            </Link>
-            <Link href="/login" className={buttonClasses("secondary", "md", "h-12 px-6 text-base")}>
-              Ya tengo cuenta
+            <Link href="/login" className={buttonClasses("primary", "md", "h-12 px-6 text-base")}>
+              Iniciar sesión
             </Link>
           </div>
+          <p className="mt-4 text-sm text-muted">
+            ¿Todavía no tenés acceso? Pedíselo al administrador de tu empresa.
+          </p>
         </div>
 
         <ul className="mt-20 grid gap-4 sm:grid-cols-3">

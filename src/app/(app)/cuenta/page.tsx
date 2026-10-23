@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader } from "@/components/ui/misc";
 import { ProfileForm } from "./profile-form";
-import { NewPasswordForm } from "@/components/new-password-form";
+import { ChangePasswordForm } from "@/components/password-forms";
 
 export const metadata: Metadata = { title: "Mi cuenta" };
 
@@ -22,7 +22,7 @@ export default async function AccountPage() {
         </Card>
         <Card>
           <h2 className="mb-4 font-bold">Cambiar contraseña</h2>
-          <NewPasswordForm redirectHome={false} />
+          <ChangePasswordForm />
         </Card>
       </div>
     </div>

@@ -142,19 +142,3 @@ export async function leaveWorkspaceAction(workspaceId: string): Promise<ActionR
   revalidatePath("/", "layout");
   redirect("/inicio");
 }
-
-export async function respondInvitationAction(invitationId: string, accept: boolean): Promise<ActionResult> {
-  const ctx = await actionContext();
-  if (!ctx) return fail(SESSION_EXPIRED);
-  if (!uuidSchema.safeParse(invitationId).success) return fail("Invitación inválida.");
-
-  const { data: workspaceId, error } = await ctx.supabase.rpc("respond_to_invitation", {
-    p_invitation_id: invitationId,
-    p_accept: accept,
-  });
-  if (error) return fromDb(error, "No se pudo responder la invitación.");
-
-  revalidatePath("/", "layout");
-  if (accept && workspaceId) redirect(`/e/${workspaceId}`);
-  return ok(undefined, "Invitación rechazada.");
-}

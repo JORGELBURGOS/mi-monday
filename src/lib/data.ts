@@ -17,7 +17,6 @@ export type BoardOverview = Tables<"board_overview">;
 export type Group = Tables<"board_groups">;
 export type Status = Tables<"board_statuses">;
 export type Task = Tables<"tasks">;
-export type Invitation = Tables<"workspace_invitations">;
 
 export type Member = {
   user_id: string;
@@ -87,19 +86,6 @@ export async function getRecentBoards(limit = 8): Promise<BoardOverview[]> {
   return data ?? [];
 }
 
-export async function getPendingInvitationsForMe(email: string): Promise<Invitation[]> {
-  if (!email) return [];
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("workspace_invitations")
-    .select("*")
-    .eq("status", "pending")
-    .eq("email", email.toLowerCase())
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false });
-  return data ?? [];
-}
-
 export async function getWorkspaceMembers(workspaceId: string): Promise<Member[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -117,17 +103,6 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<Member[]
       email: m.profiles?.email ?? null,
     }))
     .sort((a, b) => order[a.role] - order[b.role] || displayName(a).localeCompare(displayName(b), "es"));
-}
-
-export async function getWorkspaceInvitations(workspaceId: string): Promise<Invitation[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("workspace_invitations")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
-  return data ?? [];
 }
 
 export type BoardData = {

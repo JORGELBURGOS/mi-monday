@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getWorkspace, getWorkspaceInvitations, getWorkspaceMembers } from "@/lib/data";
+import { getWorkspace, getWorkspaceMembers } from "@/lib/data";
 import { PageHeader } from "@/components/ui/misc";
 import { uuidSchema } from "@/lib/validation";
 import { MembersPanel } from "./members-panel";
@@ -15,26 +15,16 @@ export default async function MembersPage({ params }: { params: Promise<{ worksp
   const workspace = await getWorkspace(workspaceId, user.id);
   if (!workspace) notFound();
 
-  const canManage = workspace.role === "owner" || workspace.role === "admin";
-  const [members, invitations] = await Promise.all([
-    getWorkspaceMembers(workspaceId),
-    canManage ? getWorkspaceInvitations(workspaceId) : Promise.resolve([]),
-  ]);
+  const members = await getWorkspaceMembers(workspaceId);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-8">
       <PageHeader
         eyebrow={workspace.name}
         title="Miembros"
-        description="Quiénes tienen acceso a este espacio y con qué rol."
+        description="Quiénes tienen acceso a este espacio, con qué rol, y altas de personas nuevas."
       />
-      <MembersPanel
-        workspaceId={workspaceId}
-        myId={user.id}
-        myRole={workspace.role}
-        members={members}
-        invitations={invitations}
-      />
+      <MembersPanel workspaceId={workspaceId} myId={user.id} myRole={workspace.role} members={members} />
     </div>
   );
 }

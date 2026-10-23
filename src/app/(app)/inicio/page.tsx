@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getMyWorkspaces, getPendingInvitationsForMe, getRecentBoards } from "@/lib/data";
+import { getMyWorkspaces, getRecentBoards } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { BoardCard } from "@/components/board-card";
-import { InvitationList } from "@/components/invitation-list";
 import { EmptyState, PageHeader, SectionTitle } from "@/components/ui/misc";
 import { buttonClasses } from "@/components/ui/button-classes";
 import { IconBoard, IconPlus, IconUsers } from "@/components/ui/icons";
@@ -15,10 +14,9 @@ export const metadata: Metadata = { title: "Inicio" };
 export default async function HomePage() {
   const user = await requireUser("/inicio");
   const supabase = await createClient();
-  const [workspaces, recent, invitations, profile] = await Promise.all([
+  const [workspaces, recent, profile] = await Promise.all([
     getMyWorkspaces(user.id),
     getRecentBoards(9),
-    getPendingInvitationsForMe(user.email),
     supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
   ]);
   const wsName = new Map(workspaces.map((w) => [w.id, w.name]));
@@ -38,20 +36,11 @@ export default async function HomePage() {
         }
       />
 
-      {invitations.length > 0 && (
-        <section className="mb-8" aria-labelledby="inv-title">
-          <SectionTitle>
-            <span id="inv-title">Invitaciones pendientes</span>
-          </SectionTitle>
-          <InvitationList invitations={invitations} />
-        </section>
-      )}
-
       {workspaces.length === 0 ? (
         <EmptyState
           icon={<IconUsers />}
           title="Creá tu primer espacio de trabajo"
-          description="Un espacio agrupa los tableros de un equipo o un proyecto. Después podés invitar a otras personas."
+          description="Un espacio agrupa los tableros de un equipo o un proyecto. Después podés sumar a otras personas desde Miembros."
           action={
             <Link href="/espacios/nuevo" className={buttonClasses("primary")}>
               <IconPlus size={16} /> Crear espacio
