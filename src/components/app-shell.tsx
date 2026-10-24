@@ -356,7 +356,7 @@ function WorkspaceNode({
           <li>
             <NavLink
               href={`/e/${workspace.id}/dashboard`}
-              active={pathname === `/e/${workspace.id}/dashboard`}
+              active={pathname.startsWith(`/e/${workspace.id}/dashboard`)}
               icon={<IconChart size={15} />}
               className="text-muted"
             >

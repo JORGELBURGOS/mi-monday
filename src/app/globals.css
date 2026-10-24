@@ -68,6 +68,13 @@
   --solid-brown: #7a4b2a;  --solid-brown-fg: #fff;
   --solid-navy: #1f3a68;   --solid-navy-fg: #fff;
   --solid-olive: #5e6b1f;  --solid-olive-fg: #fff;
+
+  /* Paleta de gráficos (orden fijo, validada para daltonismo). */
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+  --series-other: #a8a39a;
+  --series-none: #d9d5cd;
+  --grid: #ebe8e2;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -114,6 +121,12 @@
     --chip-brown-bg: #33251a;  --chip-brown-fg: #e3c3a8;  --chip-brown-dot: #b98258;
     --chip-navy-bg: #1a2438;   --chip-navy-fg: #b4c5e4;   --chip-navy-dot: #5f80b8;
     --chip-olive-bg: #2b2e14;  --chip-olive-fg: #d4dc9c;  --chip-olive-dot: #a2b141;
+
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+    --series-other: #6b665e;
+    --series-none: #45413b;
+    --grid: #2c2a26;
   }
 }
 
@@ -275,4 +288,25 @@ dialog::backdrop {
 #app-zoom {
   zoom: var(--ui-zoom, 1);
   min-height: calc(100dvh / var(--ui-zoom, 1));
+}
+
+/* Dashboards: grilla de 12 columnas; cada widget ocupa --w columnas y --h filas. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: 150px;
+  grid-auto-flow: row dense;
+  gap: 1rem;
+}
+.dash-cell {
+  grid-column: span 12;
+  grid-row: span var(--h, 2);
+}
+.dash-cell[data-w="3"] { grid-column: span 6; }
+@media (min-width: 768px) {
+  .dash-cell { grid-column: span 6; }
+  .dash-cell[data-w="12"], .dash-cell[data-w="8"] { grid-column: span 12; }
+}
+@media (min-width: 1100px) {
+  .dash-cell, .dash-cell[data-w] { grid-column: span var(--w, 6); }
 }

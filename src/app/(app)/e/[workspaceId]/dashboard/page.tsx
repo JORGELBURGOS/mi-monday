@@ -11,6 +11,8 @@ import { displayName } from "@/lib/format";
 import { CHECK_STATUS_LABELS, isChecklist, readValues, type CheckStatus } from "@/lib/columns";
 import { Avatar, Card, EmptyState, PageHeader } from "@/components/ui/misc";
 import { IconChart } from "@/components/ui/icons";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
+import { listDashboards } from "@/lib/dashboard-data";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -37,13 +39,14 @@ export default async function DashboardPage({ params }: { params: Promise<{ work
   const supabase = await createClient();
   const { data: boards } = await supabase.from("boards").select("id, name").eq("workspace_id", workspaceId).eq("is_archived", false).order("name");
   const ids = (boards ?? []).map((b) => b.id);
-  const [{ data: statuses }, { data: tasks }, members, { data: ckCols }] = await Promise.all([
+  const [{ data: statuses }, { data: tasks }, members, { data: ckCols }, dashboards] = await Promise.all([
     ids.length ? supabase.from("board_statuses").select("id, board_id, label, color, is_done, position").in("board_id", ids).order("position") : Promise.resolve({ data: [] }),
     ids.length
       ? supabase.from("tasks").select("id, title, board_id, status_id, due_date, assignee_id, parent_id, custom_values").in("board_id", ids).is("parent_id", null).limit(10000)
       : Promise.resolve({ data: [] }),
     getWorkspaceMembers(workspaceId),
     ids.length ? supabase.from("board_columns").select("id, board_id, name").in("board_id", ids).eq("kind", "checklist") : Promise.resolve({ data: [] as { id: string; board_id: string; name: string }[] }),
+    listDashboards(workspaceId),
   ]);
 
   const st = statuses ?? [];
@@ -101,8 +104,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ work
   mySteps.sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999"));
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8">
-      <PageHeader eyebrow={workspace.name} title="Dashboard" description="Cómo viene el trabajo en todos los tableros que ves de la empresa." />
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8">
+      <PageHeader eyebrow={workspace.name} title="Dashboard" description="Cómo viene el trabajo en todos los tableros que ves de la empresa. Creá tus propios dashboards con gráficos, KPI y tablas." />
+      <DashboardTabs workspaceId={workspaceId} current="summary" dashboards={dashboards} />
 
       {all.length === 0 ? (
         <EmptyState icon={<IconChart />} title="Todavía no hay elementos" description="Cuando los tableros tengan elementos, acá vas a ver el avance, lo vencido y la carga de cada persona." />

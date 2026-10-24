@@ -70,6 +70,45 @@ export type Database = {
           },
         ]
       }
+      dashboards: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          position: number
+          updated_at: string
+          visibility: string
+          widgets: Json
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+          visibility?: string
+          widgets?: Json
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+          visibility?: string
+          widgets?: Json
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       board_automations: {
         Row: {
           action_config: Json
