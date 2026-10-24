@@ -477,10 +477,46 @@ export function computeWidget(ds: Dataset, w: Widget, g: GlobalFilters = NO_GLOB
   const tasks = filterTasks(ds, w, g);
   if (w.type === "kpi") return { kind: "kpi", value: aggregate(ds, tasks, w.metric), count: tasks.length, ids: tasks.map((t) => t.id) };
   if (w.type === "list") {
-    const sorted = [...tasks].sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999") || a.title.localeCompare(b.title, "es"));
+    const sorted = sortTasks(ds, tasks, w.options.orderBy ?? { field: "due", dir: "asc" });
     return { kind: "list", tasks: sorted.slice(0, w.options.limit ?? 20), total: tasks.length };
   }
   return computeSeries(ds, w, tasks);
+}
+
+/** Valor para ordenar un elemento por un campo (fechas y números como tales; el resto, por texto). */
+function sortValue(ds: Dataset, t: DsTask, field: string): string | number | null {
+  if (field === "title") return t.title.toLocaleLowerCase("es");
+  if (isTimeField(field)) return dateOf(ds, t, field);
+  if (field.startsWith("col:") && /\|(number|rating|checklist)$/.test(field)) return numberOf(ds, t, field);
+  const cats = catsOf(ds, t, field).filter((c) => c.key !== NONE);
+  if (!cats.length) return null;
+  // Etiquetas con orden propio (estado, prioridad, opciones): se respeta ese orden.
+  const c = cats[0];
+  return c.order !== undefined && field !== "board" && field !== "assignee" ? c.order : c.label.toLocaleLowerCase("es");
+}
+
+/** Ordena elementos por un campo; los vacíos van siempre al final. */
+export function sortTasks(ds: Dataset, tasks: DsTask[], by: { field: string; dir: "asc" | "desc" }): DsTask[] {
+  const dir = by.dir === "desc" ? -1 : 1;
+  const keyed = tasks.map((t) => ({ t, v: sortValue(ds, t, by.field) }));
+  keyed.sort((a, b) => {
+    if (a.v === null && b.v === null) return a.t.title.localeCompare(b.t.title, "es");
+    if (a.v === null) return 1;
+    if (b.v === null) return -1;
+    const cmp = typeof a.v === "number" && typeof b.v === "number" ? a.v - b.v : String(a.v).localeCompare(String(b.v), "es", { numeric: true });
+    return cmp * dir || a.t.title.localeCompare(b.t.title, "es");
+  });
+  return keyed.map((x) => x.t);
+}
+
+/** Aplica un orden personalizado (claves guardadas); lo que no está en la lista va al final, en su orden. */
+function byCustomOrder<T extends { key: string }>(list: T[], order: string[] | undefined): T[] {
+  if (!order?.length) return list;
+  const pos = new Map(order.map((k, i) => [k, i]));
+  return list
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => (pos.get(a.x.key) ?? 1e6 + a.i) - (pos.get(b.x.key) ?? 1e6 + b.i))
+    .map((y) => y.x);
 }
 
 function computeSeries(ds: Dataset, w: Widget, tasks: DsTask[]): SeriesResult {
@@ -539,7 +575,8 @@ function computeSeries(ds: Dataset, w: Widget, tasks: DsTask[]): SeriesResult {
   const cellTasks = (c: string, s: string) => cells.get(`${c}\u0000${s}`) ?? [];
   const catTotal = (c: string) => aggregate(ds, [...new Set([...serMap.keys()].flatMap((s) => cellTasks(c, s)))], w.metric);
 
-  if (!time && w.options.sort && w.options.sort !== "label") {
+  if (!time && w.options.sort === "custom") cats = byCustomOrder(cats, w.options.catOrder);
+  else if (!time && w.options.sort && w.options.sort !== "label") {
     const dir = w.options.sort === "value_desc" ? -1 : 1;
     cats.sort((a, b) => dir * ((catTotal(a.key) ?? 0) - (catTotal(b.key) ?? 0)));
   }
@@ -549,19 +586,21 @@ function computeSeries(ds: Dataset, w: Widget, tasks: DsTask[]): SeriesResult {
   const limit = time ? undefined : (w.options.limit ?? (pie ? 8 : undefined));
   let other: string[] = [];
   if (limit && cats.length > limit) {
-    if (!w.options.sort || w.options.sort === "label") cats.sort((a, b) => (catTotal(b.key) ?? 0) - (catTotal(a.key) ?? 0));
+    if (!w.options.sort || w.options.sort === "label" || w.options.sort === "custom") cats.sort((a, b) => (catTotal(b.key) ?? 0) - (catTotal(a.key) ?? 0));
     other = cats.slice(limit - 1).map((c) => c.key);
     cats = [...cats.slice(0, limit - 1), { key: OTHER, label: "Otros" }];
   }
 
   // Series: máximo 8 con color propio; el resto, "Otros".
-  let series = sortCats([...serMap.values()]);
+  // Las tablas pueden tener más columnas (no dependen de colores distintos).
+  const maxSeries = w.type === "pivot" ? 30 : SERIES_SLOTS;
+  let series = byCustomOrder(sortCats([...serMap.values()]), w.options.seriesOrder);
   let otherSeries: string[] = [];
-  if (series.length > SERIES_SLOTS) {
+  if (series.length > maxSeries) {
     const tot = (s: string) => aggregate(ds, [...new Set([...catMap.keys()].flatMap((c) => cellTasks(c, s)))], w.metric) ?? 0;
     series.sort((a, b) => tot(b.key) - tot(a.key));
-    otherSeries = series.slice(SERIES_SLOTS - 1).map((s) => s.key);
-    series = [...sortCats(series.slice(0, SERIES_SLOTS - 1)), { key: OTHER, label: "Otros" }];
+    otherSeries = series.slice(maxSeries - 1).map((s) => s.key);
+    series = [...byCustomOrder(sortCats(series.slice(0, maxSeries - 1)), w.options.seriesOrder), { key: OTHER, label: "Otros" }];
   }
 
   const tasksIn = (c: string, s: string) => {

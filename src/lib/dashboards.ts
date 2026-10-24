@@ -123,7 +123,13 @@ export const widgetSchema = z.object({
   filters: filtersSchema.default({ boards: [], state: "all", subitems: false, conditions: [] }),
   options: z
     .object({
-      sort: z.enum(["label", "value_desc", "value_asc"]).optional(),
+      /** Orden de las categorías (filas / barras): natural, por valor o personalizado (catOrder). */
+      sort: z.enum(["label", "value_desc", "value_asc", "custom"]).optional(),
+      catOrder: z.array(z.string().max(220)).max(200).optional(),
+      /** Orden personalizado de las series (columnas de la tabla dinámica). */
+      seriesOrder: z.array(z.string().max(220)).max(200).optional(),
+      /** Lista de elementos: por qué columna se ordenan las filas. */
+      orderBy: z.object({ field, dir: z.enum(["asc", "desc"]) }).optional(),
       limit: z.number().int().min(1).max(100).optional(),
       showValues: z.boolean().optional(),
       cumulative: z.boolean().optional(),

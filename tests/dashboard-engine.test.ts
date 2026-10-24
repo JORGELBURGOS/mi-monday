@@ -59,6 +59,16 @@ ok(filterTasks(ds, W({ type: "kpi" }), { boards: [], assignee: "__none", state: 
 ok(fieldCatalog(ds).some((f) => f.key === "col:region|list"), "catálogo incluye columnas");
 ok(optionsOf(ds, "status").length === 3, "opciones de estado unidas");
 ok(formatValue(1234.5, W({ type: "kpi", options: { prefix: "$" } })) === "$1234,5" || formatValue(1234.5, W({ type: "kpi", options: { prefix: "$" } })) === "$1.234,5", "formato");
+r = computeWidget(ds, W({ type: "list", options: { orderBy: { field: "col:monto|number", dir: "desc" } } }));
+ok(r.kind === "list" && r.tasks.map((t) => t.id).join(",") === "a,b,c,d,e", "lista ordenada por número (desc)");
+r = computeWidget(ds, W({ type: "list", options: { orderBy: { field: "title", dir: "desc" } } }));
+ok(r.kind === "list" && r.tasks[0].id === "e", "lista ordenada por título (desc)");
+r = computeWidget(ds, W({ type: "list", options: { orderBy: { field: "status", dir: "asc" } } }));
+ok(r.kind === "list" && r.tasks[r.tasks.length - 1].status_id?.endsWith("3") === true, "lista por estado respeta el orden de las etiquetas");
+r = computeWidget(ds, W({ type: "bar", dim: { field: "status" }, options: { sort: "custom", catOrder: ["listo", "no iniciado"] } }));
+ok(r.kind === "series" && r.categories.map((c) => c.label).join(",") === "Listo,No iniciado,En curso", "orden personalizado de filas");
+r = computeWidget(ds, W({ type: "pivot", dim: { field: "board" }, split: { field: "status" }, options: { seriesOrder: ["en curso", "listo"] } }));
+ok(r.kind === "series" && r.series.map((c) => c.label).join(",") === "En curso,Listo,No iniciado", "orden personalizado de columnas");
 for (const w of templateWidgets("summary")) computeWidget(ds, w);
 for (const t of ["kpi","bar","hbar","stacked","line","area","pie","donut","progress","pivot","list","text"] as const) computeWidget(ds, blankWidget(t));
 ok(true, "plantilla y widgets por defecto calculan sin errores");

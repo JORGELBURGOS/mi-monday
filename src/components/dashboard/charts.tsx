@@ -474,31 +474,52 @@ export function SeriesTable({ r, fmt, onSelect, dimLabel }: { r: SeriesResult; f
   const multi = hasSeries(r);
   const colTotals = r.series.map((_, si) => r.values[si].reduce<number>((a, v) => a + (v ?? 0), 0));
   const additive = ["Cantidad de elementos"].includes(r.metricLabel) || r.metricLabel.startsWith("Suma");
+  // Orden al tocar un encabezado (solo en la vista): -1 = por nombre, n = columna n, -2 = total.
+  const [sort, setSort] = useState<{ col: number; dir: 1 | -1 } | null>(null);
+  const valueAt = (ci: number, col: number) => (col === -2 ? r.totals[ci] : r.values[col][ci]) ?? -Infinity;
+  const rows = r.categories.map((_, ci) => ci);
+  if (sort)
+    rows.sort((a, b) =>
+      sort.col === -1 ? sort.dir * r.categories[a].label.localeCompare(r.categories[b].label, "es", { numeric: true }) : sort.dir * (valueAt(a, sort.col) - valueAt(b, sort.col)),
+    );
+  const toggle = (col: number) => setSort((cur) => (cur?.col === col ? (cur.dir === -1 ? null : { col, dir: -1 }) : { col, dir: col === -1 ? 1 : -1 }));
+  const header = (col: number, label: React.ReactNode, align: "left" | "right", key?: string) => {
+    const active = sort?.col === col;
+    return (
+      <th key={key} scope="col" aria-sort={active ? (sort!.dir === 1 ? "ascending" : "descending") : "none"} className={cn("border-b border-line px-2 py-1.5 font-semibold text-muted", align === "right" ? "text-right" : "text-left")}>
+        <button type="button" onClick={() => toggle(col)} className={cn("inline-flex items-center gap-1 hover:text-fg", active && "text-fg")} title="Ordenar por esta columna">
+          {label}
+          <span aria-hidden className={cn("text-[10px]", !active && "opacity-0")}>
+            {sort?.dir === 1 ? "▲" : "▼"}
+          </span>
+        </button>
+      </th>
+    );
+  };
   return (
     <div className="h-full overflow-auto">
       <table className="w-full border-separate border-spacing-0 text-xs">
         <thead className="sticky top-0 bg-surface">
           <tr>
-            <th scope="col" className="border-b border-line px-2 py-1.5 text-left font-semibold text-muted">
-              {dimLabel}
-            </th>
-            {r.series.map((s) => (
-              <th key={s.key} scope="col" className="border-b border-line px-2 py-1.5 text-right font-semibold text-muted">
+            {header(-1, dimLabel, "left")}
+            {r.series.map((s, si) =>
+              header(
+                si,
                 <span className="inline-flex items-center gap-1.5">
                   {multi && <span className="h-2 w-2 rounded-sm" style={{ background: s.fill }} aria-hidden />}
                   {multi ? s.label : r.metricLabel}
-                </span>
-              </th>
-            ))}
-            {multi && (
-              <th scope="col" className="border-b border-line px-2 py-1.5 text-right font-semibold text-muted">
-                Total
-              </th>
+                </span>,
+                "right",
+                s.key,
+              ),
             )}
+            {multi && header(-2, "Total", "right")}
           </tr>
         </thead>
         <tbody>
-          {r.categories.map((c, ci) => (
+          {rows.map((ci) => r.categories[ci]).map((c) => {
+            const ci = r.categories.indexOf(c);
+            return (
             <tr key={c.key} className="hover:bg-surface-2">
               <th scope="row" className="border-b border-line px-2 py-1.5 text-left font-medium">
                 {c.label}
@@ -516,7 +537,8 @@ export function SeriesTable({ r, fmt, onSelect, dimLabel }: { r: SeriesResult; f
               ))}
               {multi && <td className="border-b border-line px-2 py-1.5 text-right font-semibold tabular-nums">{fmt(r.totals[ci])}</td>}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
         {additive && r.categories.length > 1 && (
           <tfoot>

@@ -220,28 +220,7 @@ export function WidgetEditor({ ds, initial, onClose, onSave }: { ds: Dataset; in
                   )}
                 </div>
               )}
-              {w.type === "list" && (
-                <div>
-                  <p className="mb-1.5 text-sm font-semibold">Columnas a mostrar</p>
-                  <div className="grid max-h-40 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-line p-2">
-                    {catalog.map((f) => {
-                      const on = (w.options.fields ?? []).includes(f.key);
-                      return (
-                        <label key={f.key} className="flex items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
-                            className="h-3.5 w-3.5 accent-[var(--accent)]"
-                            checked={on}
-                            disabled={!on && (w.options.fields ?? []).length >= 8}
-                            onChange={(e) => setOpt({ fields: e.target.checked ? [...(w.options.fields ?? []), f.key] : (w.options.fields ?? []).filter((x) => x !== f.key) })}
-                          />
-                          <span className="truncate">{f.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {w.type === "list" && <ListColumnsEditor uid={uid} ds={ds} w={w} setOpt={setOpt} />}
             </fieldset>
           )}
 
@@ -251,12 +230,13 @@ export function WidgetEditor({ ds, initial, onClose, onSave }: { ds: Dataset; in
             <fieldset className="space-y-3">
               <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-subtle">Presentación</legend>
               <div className="grid gap-3 sm:grid-cols-3">
-                {needsDim && !timeDim && w.type !== "progress" && (
-                  <Field id={`${uid}-sort`} label="Orden">
+                {needsDim && !timeDim && (
+                  <Field id={`${uid}-sort`} label={w.type === "pivot" || w.type === "progress" ? "Orden de las filas" : "Orden"}>
                     <Select id={`${uid}-sort`} value={w.options.sort ?? "label"} onChange={(e) => setOpt({ sort: e.target.value as Widget["options"]["sort"] })}>
                       <option value="label">Natural</option>
                       <option value="value_desc">Mayor a menor</option>
                       <option value="value_asc">Menor a mayor</option>
+                      <option value="custom">Personalizado</option>
                     </Select>
                   </Field>
                 )}
@@ -300,6 +280,25 @@ export function WidgetEditor({ ds, initial, onClose, onSave }: { ds: Dataset; in
                   </Field>
                 )}
               </div>
+              {needsDim && !timeDim && w.options.sort === "custom" && w.dim && (
+                <CategoryOrder
+                  title={w.type === "pivot" || w.type === "progress" ? "Orden de las filas" : "Orden de las categorías"}
+                  ds={ds}
+                  field={w.dim.field}
+                  value={w.options.catOrder}
+                  onChange={(catOrder) => setOpt({ catOrder })}
+                />
+              )}
+              {w.split?.field && !isTimeField(w.split.field) && canSplit && (
+                <CategoryOrder
+                  title={w.type === "pivot" ? "Orden de las columnas" : "Orden de las series"}
+                  ds={ds}
+                  field={w.split.field}
+                  value={w.options.seriesOrder}
+                  onChange={(seriesOrder) => setOpt({ seriesOrder })}
+                  optional
+                />
+              )}
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
                 {["bar", "hbar", "stacked"].includes(w.type) && (
                   <label className="flex items-center gap-2">
@@ -459,5 +458,172 @@ function FiltersEditor({ uid, ds, w, setFilters }: { uid: string; ds: Dataset; w
         )}
       </div>
     </fieldset>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Listas ordenables                                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Lista que se ordena arrastrando o con los botones ↑ ↓ (accesible con teclado). */
+function OrderList({
+  items,
+  onChange,
+  onRemove,
+  label,
+}: {
+  items: { key: string; label: string }[];
+  onChange: (keys: string[]) => void;
+  onRemove?: (key: string) => void;
+  label: string;
+}) {
+  const [drag, setDrag] = useState<number | null>(null);
+  const keys = items.map((i) => i.key);
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= keys.length || from === to) return;
+    const next = [...keys];
+    const [k] = next.splice(from, 1);
+    next.splice(to, 0, k);
+    onChange(next);
+  };
+  return (
+    <ol aria-label={label} className="max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line">
+      {items.map((it, i) => (
+        <li
+          key={it.key}
+          draggable
+          onDragStart={(e) => {
+            setDrag(i);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (drag !== null) move(drag, i);
+            setDrag(null);
+          }}
+          onDragEnd={() => setDrag(null)}
+          className={cn("flex items-center gap-2 bg-surface px-2 py-1 text-xs", drag === i && "opacity-50")}
+        >
+          <span className="cursor-grab text-subtle" aria-hidden>
+            ⠿
+          </span>
+          <span className="w-5 text-right tabular-nums text-subtle">{i + 1}</span>
+          <span className="min-w-0 flex-1 truncate">{it.label}</span>
+          <button type="button" aria-label={`Subir ${it.label}`} disabled={i === 0} onClick={() => move(i, i - 1)} className="rounded px-1 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30">
+            ↑
+          </button>
+          <button type="button" aria-label={`Bajar ${it.label}`} disabled={i === items.length - 1} onClick={() => move(i, i + 1)} className="rounded px-1 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30">
+            ↓
+          </button>
+          {onRemove && (
+            <button type="button" aria-label={`Quitar ${it.label}`} onClick={() => onRemove(it.key)} className="rounded p-0.5 text-muted hover:text-danger">
+              <IconX size={12} />
+            </button>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Orden personalizado de las categorías de un campo (filas, barras o columnas). */
+function CategoryOrder({
+  title,
+  ds,
+  field,
+  value,
+  onChange,
+  optional,
+}: {
+  title: string;
+  ds: Dataset;
+  field: string;
+  value: string[] | undefined;
+  onChange: (v: string[] | undefined) => void;
+  optional?: boolean;
+}) {
+  const [open, setOpen] = useState(Boolean(value?.length) || !optional);
+  const options = useMemo(() => optionsOf(ds, field), [ds, field]);
+  const ordered = useMemo(() => {
+    const pos = new Map((value ?? []).map((k, i) => [k, i]));
+    return options.map((o, i) => ({ o, i })).sort((a, b) => (pos.get(a.o.key) ?? 1e6 + a.i) - (pos.get(b.o.key) ?? 1e6 + b.i)).map((x) => x.o);
+  }, [options, value]);
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="text-xs font-semibold text-accent hover:underline">
+        {title}: personalizar…
+      </button>
+    );
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <p className="text-sm font-semibold">{title}</p>
+        {value?.length ? (
+          <button type="button" onClick={() => onChange(undefined)} className="text-xs font-semibold text-accent hover:underline">
+            Volver al orden natural
+          </button>
+        ) : null}
+      </div>
+      {options.length === 0 ? (
+        <p className="text-xs text-muted">Todavía no hay valores para ordenar.</p>
+      ) : (
+        <OrderList label={title} items={ordered} onChange={onChange} />
+      )}
+      <p className="mt-1 text-[11px] text-subtle">Arrastrá o usá las flechas. Lo que aparezca después va al final.</p>
+    </div>
+  );
+}
+
+/** Columnas de la lista de elementos: elegir, ordenar y definir cómo se ordenan las filas. */
+function ListColumnsEditor({ uid, ds, w, setOpt }: { uid: string; ds: Dataset; w: Widget; setOpt: (p: Partial<Widget["options"]>) => void }) {
+  const catalog = useMemo(() => [...fieldCatalog(ds), ...numberFields(ds).filter((f) => f.colKind !== "checklist")], [ds]);
+  const label = (k: string) => catalog.find((f) => f.key === k)?.label ?? "Columna";
+  const fields = w.options.fields ?? [];
+  const rest = catalog.filter((f) => !fields.includes(f.key));
+  const orderBy = w.options.orderBy ?? { field: "due", dir: "asc" as const };
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="mb-1.5 text-sm font-semibold">Columnas (en este orden)</p>
+        <p className="mb-1.5 text-[11px] text-subtle">«Elemento» va siempre primero. Arrastrá o usá las flechas para ordenar las demás.</p>
+        {fields.length > 0 && (
+          <OrderList label="Columnas de la lista" items={fields.map((k) => ({ key: k, label: label(k) }))} onChange={(next) => setOpt({ fields: next })} onRemove={(k) => setOpt({ fields: fields.filter((x) => x !== k) })} />
+        )}
+        {fields.length < 8 && rest.length > 0 && (
+          <Select
+            aria-label="Agregar columna"
+            className="mt-2 !h-8 text-xs"
+            value=""
+            onChange={(e) => e.target.value && setOpt({ fields: [...fields, e.target.value] })}
+          >
+            <option value="">+ Agregar columna…</option>
+            {rest.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </Select>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id={`${uid}-ob`} label="Ordenar filas por">
+          <Select id={`${uid}-ob`} value={orderBy.field} onChange={(e) => setOpt({ orderBy: { ...orderBy, field: e.target.value } })}>
+            <option value="title">Elemento (nombre)</option>
+            {catalog.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field id={`${uid}-od`} label="Sentido">
+          <Select id={`${uid}-od`} value={orderBy.dir} onChange={(e) => setOpt({ orderBy: { ...orderBy, dir: e.target.value as "asc" | "desc" } })}>
+            <option value="asc">Ascendente (A→Z, antiguo→nuevo, menor→mayor)</option>
+            <option value="desc">Descendente (Z→A, nuevo→antiguo, mayor→menor)</option>
+          </Select>
+        </Field>
+      </div>
+    </div>
   );
 }

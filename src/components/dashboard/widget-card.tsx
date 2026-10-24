@@ -70,13 +70,15 @@ export function WidgetCard({
   const { className: dragClass, ...drag } = dragProps ?? {};
   const [asTable, setAsTable] = useState(w.type === "pivot");
   const [drill, setDrill] = useState<{ ids: string[]; title: string } | null>(null);
+  // Orden elegido tocando el encabezado de una lista (solo en esta vista, no se guarda).
+  const [viewSort, setViewSort] = useState<{ field: string; dir: "asc" | "desc" } | null>(null);
   const result = useMemo(() => {
     try {
-      return computeWidget(ds, w, filters);
+      return computeWidget(ds, viewSort ? { ...w, options: { ...w.options, orderBy: viewSort } } : w, filters);
     } catch {
       return null;
     }
-  }, [ds, w, filters]);
+  }, [ds, w, filters, viewSort]);
   const fmt: Fmt = (n) => formatValue(n, w, { compact: true });
   const isChart = result?.kind === "series";
 
@@ -163,7 +165,19 @@ export function WidgetCard({
             )}
           </button>
         ) : result.kind === "list" ? (
-          <ListBody ds={ds} w={w} tasks={result.tasks} total={result.total} />
+          <ListBody
+            ds={ds}
+            w={w}
+            tasks={result.tasks}
+            total={result.total}
+            sort={viewSort ?? w.options.orderBy ?? { field: "due", dir: "asc" }}
+            onSort={(field) =>
+              setViewSort((cur) => {
+                const base = cur ?? w.options.orderBy ?? { field: "due", dir: "asc" as const };
+                return { field, dir: base.field === field && base.dir === "asc" ? "desc" : "asc" };
+              })
+            }
+          />
         ) : result.categories.length === 0 ? (
           <p className="flex h-full items-center justify-center text-sm text-muted">Sin datos con estos filtros.</p>
         ) : asTable || w.type === "pivot" ? (
@@ -308,7 +322,35 @@ function TextBody({ w }: { w: Widget }) {
   );
 }
 
-function ListBody({ ds, w, tasks, total }: { ds: Dataset; w: Widget; tasks: DsTask[]; total: number }) {
+function SortHeader({ label, field, sort, onSort }: { label: string; field: string; sort: { field: string; dir: "asc" | "desc" }; onSort: (f: string) => void }) {
+  const active = sort.field === field;
+  return (
+    <th scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className="border-b border-line px-2 py-1.5 text-left font-semibold text-muted">
+      <button type="button" onClick={() => onSort(field)} className={cn("inline-flex items-center gap-1 hover:text-fg", active && "text-fg")}>
+        {label}
+        <span aria-hidden className={cn("text-[10px]", !active && "opacity-0")}>
+          {sort.dir === "asc" ? "▲" : "▼"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+function ListBody({
+  ds,
+  w,
+  tasks,
+  total,
+  sort,
+  onSort,
+}: {
+  ds: Dataset;
+  w: Widget;
+  tasks: DsTask[];
+  total: number;
+  sort: { field: string; dir: "asc" | "desc" };
+  onSort: (field: string) => void;
+}) {
   const fields = w.options.fields?.length ? w.options.fields : ["board", "assignee", "due"];
   if (!tasks.length) return <p className="flex h-full items-center justify-center text-sm text-muted">No hay elementos con estos filtros.</p>;
   return (
@@ -316,13 +358,9 @@ function ListBody({ ds, w, tasks, total }: { ds: Dataset; w: Widget; tasks: DsTa
       <table className="w-full border-separate border-spacing-0 text-xs">
         <thead className="sticky top-0 bg-surface">
           <tr>
-            <th scope="col" className="border-b border-line px-2 py-1.5 text-left font-semibold text-muted">
-              Elemento
-            </th>
+            <SortHeader label="Elemento" field="title" sort={sort} onSort={onSort} />
             {fields.map((f) => (
-              <th key={f} scope="col" className="border-b border-line px-2 py-1.5 text-left font-semibold text-muted">
-                {fieldLabel(ds, f)}
-              </th>
+              <SortHeader key={f} label={fieldLabel(ds, f)} field={f} sort={sort} onSort={onSort} />
             ))}
           </tr>
         </thead>
