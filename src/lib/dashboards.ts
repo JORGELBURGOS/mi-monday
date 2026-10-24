@@ -85,8 +85,12 @@ export const STATES = ["all", "open", "done", "overdue"] as const;
 export type StateFilter = (typeof STATES)[number];
 export const STATE_LABELS: Record<StateFilter, string> = { all: "Todos", open: "Pendientes", done: "Terminados", overdue: "Vencidos" };
 
+/** Anchos rápidos (de 12 columnas) y altos rápidos (en filas de la grilla). */
 export const WIDTHS = [3, 4, 6, 8, 12] as const;
-export const HEIGHTS = [1, 2, 3, 4] as const;
+export const HEIGHTS = [2, 4, 6, 8] as const;
+export const MAX_ROWS = 20;
+/** Alto en filas: `rows` (nuevo) o el alto anterior `h` (1 h = 2 filas). */
+export const rowsOf = (w: { rows?: number; h: number }) => w.rows ?? w.h * 2;
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/);
 const field = z.string().min(1).max(220);
@@ -108,8 +112,11 @@ export const widgetSchema = z.object({
   id,
   type: z.enum(WIDGET_TYPES),
   title: z.string().max(80).default(""),
-  w: z.number().int().refine((n) => (WIDTHS as readonly number[]).includes(n), { message: "Ancho inválido." }).default(6),
-  h: z.number().int().refine((n) => (HEIGHTS as readonly number[]).includes(n), { message: "Alto inválido." }).default(2),
+  w: z.number().int().min(1).max(12).default(6),
+  /** Alto anterior (en bloques grandes); se conserva por compatibilidad. */
+  h: z.number().int().min(1).max(10).default(2),
+  /** Alto en filas de la grilla (cada fila ≈ 67 px). */
+  rows: z.number().int().min(1).max(MAX_ROWS).optional(),
   dim: z.object({ field, period: z.enum(PERIODS).optional() }).optional(),
   split: z.object({ field, period: z.enum(PERIODS).optional() }).optional(),
   metric: z.object({ op: z.enum(METRIC_OPS).default("count"), field: field.optional() }).default({ op: "count" }),
@@ -147,9 +154,9 @@ export function blankWidget(type: WidgetType): Widget {
   const base = widgetSchema.parse({ id: newWidgetId(), type });
   switch (type) {
     case "kpi":
-      return { ...base, title: "Elementos", w: 3, h: 1 };
+      return { ...base, title: "Elementos", w: 3, rows: 2 };
     case "text":
-      return { ...base, title: "Título", w: 12, h: 1, options: { text: "" } };
+      return { ...base, title: "Título", w: 12, rows: 2, options: { text: "" } };
     case "line":
     case "area":
       return { ...base, title: "Terminados por semana", w: 6, dim: { field: "done_at", period: "week" }, filters: { ...base.filters, state: "done" } };
@@ -176,20 +183,20 @@ export function templateWidgets(kind: "blank" | "summary"): Widget[] {
   if (kind === "blank") return [];
   const w = (x: Partial<Widget> & { type: WidgetType }): Widget => widgetSchema.parse({ id: newWidgetId(), ...x });
   return [
-    w({ type: "kpi", title: "Elementos", w: 3, h: 1 }),
-    w({ type: "kpi", title: "Terminados", w: 3, h: 1, metric: { op: "pct_done" } }),
-    w({ type: "kpi", title: "Vencidos", w: 3, h: 1, filters: { boards: [], state: "overdue", subitems: false, conditions: [] } }),
+    w({ type: "kpi", title: "Elementos", w: 3, rows: 2 }),
+    w({ type: "kpi", title: "Terminados", w: 3, rows: 2, metric: { op: "pct_done" } }),
+    w({ type: "kpi", title: "Vencidos", w: 3, rows: 2, filters: { boards: [], state: "overdue", subitems: false, conditions: [] } }),
     w({
       type: "kpi",
       title: "Vencen en 7 días",
       w: 3,
-      h: 1,
+      rows: 2,
       filters: { boards: [], state: "open", subitems: false, conditions: [{ field: "due", op: "next_days", values: ["7"] }] },
     }),
-    w({ type: "progress", title: "Avance por tablero", w: 8, h: 2, dim: { field: "board" }, split: { field: "status" } }),
-    w({ type: "donut", title: "Por prioridad", w: 4, h: 2, dim: { field: "priority" }, filters: { boards: [], state: "open", subitems: false, conditions: [] } }),
-    w({ type: "hbar", title: "Pendientes por persona", w: 6, h: 2, dim: { field: "assignee" }, filters: { boards: [], state: "open", subitems: false, conditions: [] }, options: { sort: "value_desc" } }),
-    w({ type: "line", title: "Terminados por semana", w: 6, h: 2, dim: { field: "done_at", period: "week" }, filters: { boards: [], state: "done", subitems: false, conditions: [{ field: "done_at", op: "last_days", values: ["90"] }] } }),
-    w({ type: "list", title: "Vencidos", w: 12, h: 2, filters: { boards: [], state: "overdue", subitems: false, conditions: [] }, options: { fields: ["board", "assignee", "due", "status"], limit: 20 } }),
+    w({ type: "progress", title: "Avance por tablero", w: 8, rows: 4, dim: { field: "board" }, split: { field: "status" } }),
+    w({ type: "donut", title: "Por prioridad", w: 4, rows: 4, dim: { field: "priority" }, filters: { boards: [], state: "open", subitems: false, conditions: [] } }),
+    w({ type: "hbar", title: "Pendientes por persona", w: 6, rows: 4, dim: { field: "assignee" }, filters: { boards: [], state: "open", subitems: false, conditions: [] }, options: { sort: "value_desc" } }),
+    w({ type: "line", title: "Terminados por semana", w: 6, rows: 4, dim: { field: "done_at", period: "week" }, filters: { boards: [], state: "done", subitems: false, conditions: [{ field: "done_at", op: "last_days", values: ["90"] }] } }),
+    w({ type: "list", title: "Vencidos", w: 12, rows: 4, filters: { boards: [], state: "overdue", subitems: false, conditions: [] }, options: { fields: ["board", "assignee", "due", "status"], limit: 20 } }),
   ];
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Menu, type MenuItem } from "@/components/ui/menu";
@@ -20,7 +20,7 @@ import {
   type GlobalFilters,
   type SeriesResult,
 } from "@/lib/dashboard-engine";
-import { DATE_BASE_FIELDS, HEIGHTS, WIDTHS, type Widget } from "@/lib/dashboards";
+import { DATE_BASE_FIELDS, HEIGHTS, MAX_ROWS, WIDTHS, rowsOf, type Widget } from "@/lib/dashboards";
 import { BarChart, Legend, LineChart, PieChart, ProgressRows, SeriesTable, type Fmt } from "./charts";
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -93,7 +93,7 @@ export function WidgetCard({
     items.push({ type: "label", label: "Ancho" });
     for (const n of WIDTHS) items.push({ label: `${n === w.w ? "✓ " : ""}${WIDTH_LABELS[n]}`, onSelect: () => onChange({ ...w, w: n }) });
     items.push({ type: "label", label: "Alto" });
-    for (const n of HEIGHTS) items.push({ label: `${n === w.h ? "✓ " : ""}${n === 1 ? "Bajo" : n === 2 ? "Medio" : n === 3 ? "Alto" : "Muy alto"}`, onSelect: () => onChange({ ...w, h: n }) });
+    for (const n of HEIGHTS) items.push({ label: `${n === rowsOf(w) ? "✓ " : ""}${n === 2 ? "Bajo" : n === 4 ? "Medio" : n === 6 ? "Alto" : "Muy alto"}`, onSelect: () => onChange({ ...w, rows: n }) });
     items.push({ type: "separator" });
     items.push({ label: "Quitar widget", danger: true, onSelect: onRemove });
   }
@@ -107,10 +107,11 @@ export function WidgetCard({
         editing && "border-dashed border-line-strong",
         editing && dragClass,
       )}
-      data-w={w.w}
-      style={{ ["--w" as string]: w.w, ["--h" as string]: w.h }}
+      data-size={w.w <= 4 ? "s" : w.w >= 7 ? "l" : "m"}
+      style={{ ["--w" as string]: w.w, ["--rows" as string]: rowsOf(w) }}
       {...(editing ? drag : {})}
     >
+      {editing && <ResizeHandle w={w} onChange={onChange} />}
       <header className={cn("flex items-center gap-1 px-4 pt-3", w.type === "text" && "px-1")}>
         {editing && (
           <span className="cursor-grab text-subtle active:cursor-grabbing" title="Arrastrá para mover" aria-hidden>
@@ -173,6 +174,88 @@ export function WidgetCard({
       </div>
       {drill && <DrillDialog ds={ds} title={`${w.title || "Widget"} · ${drill.title}`} ids={drill.ids} onClose={() => setDrill(null)} />}
     </section>
+  );
+}
+
+/**
+ * Asa para cambiar el tamaño arrastrando (esquina inferior derecha): el ancho se
+ * ajusta a las 12 columnas y el alto a las filas de la grilla. También con el
+ * teclado: flechas izquierda/derecha (ancho) y arriba/abajo (alto).
+ */
+function ResizeHandle({ w, onChange }: { w: Widget; onChange: (w: Widget) => void }) {
+  const start = useRef<{ x: number; y: number; w: number; rows: number; col: number; row: number } | null>(null);
+  const [live, setLive] = useState<{ w: number; rows: number } | null>(null);
+  const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const grid = e.currentTarget.closest(".dash-grid") as HTMLElement | null;
+    if (!grid) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    // Medidas en píxeles de pantalla (iguales a los del puntero, aunque la interfaz tenga zoom).
+    const rect = grid.getBoundingClientRect();
+    const scale = grid.clientWidth ? rect.width / grid.clientWidth : 1;
+    const cs = getComputedStyle(grid);
+    const gap = (parseFloat(cs.columnGap) || 16) * scale;
+    const rowH = (parseFloat(cs.gridAutoRows) || 67) * scale;
+    start.current = { x: e.clientX, y: e.clientY, w: w.w, rows: rowsOf(w), col: (rect.width - gap * 11) / 12 + gap, row: rowH + gap };
+    setLive({ w: w.w, rows: rowsOf(w) });
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const s = start.current;
+    if (!s) return;
+    const nw = clamp(s.w + Math.round((e.clientX - s.x) / s.col), 1, 12);
+    const nr = clamp(s.rows + Math.round((e.clientY - s.y) / s.row), 1, MAX_ROWS);
+    if (!live || nw !== live.w || nr !== live.rows) {
+      setLive({ w: nw, rows: nr });
+      onChange({ ...w, w: nw, rows: nr });
+    }
+  };
+  const end = () => {
+    start.current = null;
+    setLive(null);
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const r = rowsOf(w);
+    const next =
+      e.key === "ArrowRight" ? { w: clamp(w.w + 1, 1, 12), rows: r } :
+      e.key === "ArrowLeft" ? { w: clamp(w.w - 1, 1, 12), rows: r } :
+      e.key === "ArrowDown" ? { w: w.w, rows: clamp(r + 1, 1, MAX_ROWS) } :
+      e.key === "ArrowUp" ? { w: w.w, rows: clamp(r - 1, 1, MAX_ROWS) } : null;
+    if (!next) return;
+    e.preventDefault();
+    onChange({ ...w, ...next });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={`Cambiar tamaño: ${w.w} de 12 columnas de ancho, ${rowsOf(w)} filas de alto. Usá las flechas.`}
+        title="Arrastrá para cambiar el tamaño"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={end}
+        onPointerCancel={end}
+        onKeyDown={onKeyDown}
+        draggable={false}
+        onDragStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        className="absolute -bottom-1 -right-1 z-20 flex h-6 w-6 cursor-nwse-resize touch-none items-center justify-center rounded-md text-subtle hover:bg-accent-soft hover:text-accent focus-visible:bg-accent-soft"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+          <path d="M11 4 4 11M11 8 8 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      </button>
+      {live && (
+        <span className="pointer-events-none absolute bottom-6 right-6 z-20 rounded-md bg-fg px-2 py-0.5 text-xs font-semibold text-bg tabular-nums shadow-lg">
+          {live.w}/12 × {live.rows}
+        </span>
+      )}
+    </>
   );
 }
 

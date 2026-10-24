@@ -177,7 +177,7 @@ export function DashboardView({ dashboard, ds, canEdit }: { dashboard: Dashboard
             Limpiar
           </button>
         )}
-        {editing && <span className="ml-auto text-xs text-muted">Editando: arrastrá los widgets para ordenarlos y usá «⋯» para cambiar el tamaño.</span>}
+        {editing && <span className="ml-auto text-xs text-muted">Editando: arrastrá un widget para moverlo y su esquina inferior derecha para cambiarle el tamaño.</span>}
       </div>
 
       {widgets.length === 0 ? (

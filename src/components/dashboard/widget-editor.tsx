@@ -98,10 +98,10 @@ export function WidgetEditor({ ds, initial, onClose, onSave }: { ds: Dataset; in
       if (NEEDS_DIM.includes(t) && !x.dim) next.dim = { field: t === "line" || t === "area" ? "created" : "status", ...(t === "line" || t === "area" ? { period: "week" as Period } : {}) };
       if (NEEDS_SPLIT.includes(t) && !x.split) next.split = { field: x.dim?.field === "status" ? "board" : "status" };
       if (!ALLOWS_SPLIT.includes(t)) next.split = undefined;
-      if (t === "kpi") next.h = 1;
+      if (t === "kpi") next.rows = 2;
       if (t === "kpi" && x.w > 4) next.w = 3;
       if (t !== "kpi" && x.type === "kpi") {
-        next.h = 2;
+        next.rows = 4;
         next.w = 6;
       }
       if (t === "list" && !x.options.fields) next.options = { ...x.options, fields: ["board", "assignee", "due"], limit: 20 };
@@ -326,7 +326,7 @@ export function WidgetEditor({ ds, initial, onClose, onSave }: { ds: Dataset; in
 
         <div className="lg:sticky lg:top-0 lg:self-start">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-subtle">Vista previa</p>
-          <div className="dash-grid !grid-cols-1" style={{ gridAutoRows: "150px" }}>
+          <div className="dash-grid !grid-cols-1">
             <WidgetCard
               w={{ ...w, w: 12 }}
               ds={ds}

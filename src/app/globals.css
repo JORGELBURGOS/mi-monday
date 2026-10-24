@@ -290,23 +290,25 @@ dialog::backdrop {
   min-height: calc(100dvh / var(--ui-zoom, 1));
 }
 
-/* Dashboards: grilla de 12 columnas; cada widget ocupa --w columnas y --h filas. */
+/* Dashboards: grilla de 12 columnas y filas de 67 px; cada widget ocupa --w columnas y --rows filas. */
 .dash-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-rows: 150px;
+  grid-auto-rows: 67px;
   grid-auto-flow: row dense;
   gap: 1rem;
 }
 .dash-cell {
+  position: relative;
   grid-column: span 12;
-  grid-row: span var(--h, 2);
+  grid-row: span var(--rows, 4);
 }
-.dash-cell[data-w="3"] { grid-column: span 6; }
+/* Celular: los widgets angostos (KPI) van de a dos; el resto, a lo ancho. */
+.dash-cell[data-size="s"] { grid-column: span 6; }
 @media (min-width: 768px) {
-  .dash-cell { grid-column: span 6; }
-  .dash-cell[data-w="12"], .dash-cell[data-w="8"] { grid-column: span 12; }
+  .dash-cell, .dash-cell[data-size] { grid-column: span 6; }
+  .dash-cell[data-size="l"] { grid-column: span 12; }
 }
 @media (min-width: 1100px) {
-  .dash-cell, .dash-cell[data-w] { grid-column: span var(--w, 6); }
+  .dash-cell, .dash-cell[data-size] { grid-column: span var(--w, 6); }
 }
