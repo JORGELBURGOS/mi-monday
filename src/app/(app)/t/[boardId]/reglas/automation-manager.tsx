@@ -33,6 +33,7 @@ export function AutomationManager({
   canManage,
   stats,
   aiEnabled = false,
+  templates = [],
 }: {
   boardId: string;
   boards: FlowBoard[];
@@ -42,6 +43,8 @@ export function AutomationManager({
   stats: RunStats;
   /** La empresa tiene token de IA cargado. */
   aiEnabled?: boolean;
+  /** Plantillas de checklist de la empresa. */
+  templates?: { id: string; name: string }[];
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -236,6 +239,7 @@ export function AutomationManager({
           source={current}
           targets={targets}
           members={members}
+          templates={templates}
           rule={editing.rule}
           initial={editing.draft}
           onClose={() => setEditing(null)}

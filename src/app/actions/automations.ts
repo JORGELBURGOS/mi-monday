@@ -54,6 +54,10 @@ const actionConfigSchema = z
     title: z.string().trim().max(200, { message: "El título puede tener hasta 200 caracteres." }),
     due_days: int(-365, 365),
     assignee_id: uuid,
+    template_id: uuid,
+    template_name: z.string().max(80),
+    section: z.string().trim().max(300, { message: "La sección puede tener hasta 300 caracteres." }),
+    assign: z.enum(["user", "assignee"]),
   })
   .partial();
 
@@ -208,6 +212,30 @@ async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
         if (res.value === null) return { error: "Indicá el valor para la columna (o elegí vaciarla)." } as const;
         d.action_config = { column_id: col.id, mode: "value", value: res.value as RuleValue };
       }
+      break;
+    }
+    case "add_checklist": {
+      if (!ac.column_id) return { error: "Elegí el checklist donde se suman los pasos." } as const;
+      if (!ac.template_id) return { error: "Elegí la plantilla con los pasos a sumar." } as const;
+      const [{ data: col }, { data: board }] = await Promise.all([
+        ctx.supabase.from("board_columns").select("kind").eq("id", ac.column_id).eq("board_id", boardId).maybeSingle(),
+        ctx.supabase.from("boards").select("workspace_id").eq("id", boardId).maybeSingle(),
+      ]);
+      if (!col || col.kind !== "checklist") return { error: "Elegí una columna de checklist de este tablero." } as const;
+      const { data: tpl } = await ctx.supabase.from("checklist_templates").select("name").eq("id", ac.template_id).eq("workspace_id", board?.workspace_id ?? "").maybeSingle();
+      if (!tpl) return { error: "La plantilla ya no existe." } as const;
+      if (ac.assign === "user") {
+        if (!ac.user_id) return { error: "Elegí a quién se asignan los pasos." } as const;
+        if (!(await memberIdsOf(ctx, boardId)).has(ac.user_id)) return { error: "Esa persona no es de la empresa." } as const;
+      }
+      d.action_config = {
+        column_id: ac.column_id,
+        template_id: ac.template_id,
+        template_name: tpl.name,
+        section: ac.section ?? "",
+        ...(ac.assign ? { assign: ac.assign } : {}),
+        ...(ac.assign === "user" ? { user_id: ac.user_id } : {}),
+      };
       break;
     }
     case "add_comment":

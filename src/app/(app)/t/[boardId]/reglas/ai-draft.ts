@@ -84,6 +84,9 @@ export function draftFromProposal(
     title: str(a.title).slice(0, 200) || undefined,
     due_days: num(a.due_days, -365, 365),
     assignee_id: person(a.assignee_id),
+    template_id: /^[0-9a-f-]{36}$/i.test(str(a.template_id)) ? str(a.template_id) : undefined,
+    section: typeof a.section === "string" ? a.section.slice(0, 300) : mode === "add_checklist" ? "{carpeta}" : undefined,
+    assign: ["user", "assignee"].includes(str(a.assign)) ? (str(a.assign) as ActionConfig["assign"]) : undefined,
   });
 
   const chain = mode === "copy" || mode === "move";

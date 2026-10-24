@@ -70,6 +70,7 @@ export const ACTION_TYPES = [
   "set_due_date",
   "set_column",
   "add_comment",
+  "add_checklist",
   "notify",
 ] as const;
 export type ActionType = (typeof ACTION_TYPES)[number];
@@ -87,6 +88,7 @@ export const ACTION_GROUPS: { label: string; items: { value: ActionMode; label: 
       { value: "set_assignee", label: "Asignar un responsable", help: "A una persona, a quien lo creó, o quitarlo." },
       { value: "set_due_date", label: "Poner un vencimiento", help: "Hoy más los días que elijas, o quitarlo." },
       { value: "set_column", label: "Completar una columna", help: "Con un valor fijo o una fecha relativa." },
+      { value: "add_checklist", label: "Agregar pasos al checklist", help: "Suma los pasos de una plantilla debajo de lo que ya hay. Ideal al entrar a la carpeta de cada equipo." },
       { value: "add_comment", label: "Dejar un comentario", help: "Queda en el ítem firmado por Vetta." },
     ],
   },
@@ -120,6 +122,7 @@ export const SAME_BOARD_ACTIONS: ActionType[] = [
   "set_column",
   "notify",
   "add_comment",
+  "add_checklist",
 ];
 
 /** Acciones que cambian un campo del propio ítem y por eso se pueden deshacer. */
@@ -211,6 +214,11 @@ export type ActionConfig = {
   title?: string;
   due_days?: number;
   assignee_id?: string;
+  /** add_checklist: plantilla, su nombre (para mostrar), sección y a quién asignar los pasos. */
+  template_id?: string;
+  template_name?: string;
+  section?: string;
+  assign?: "user" | "assignee";
 };
 
 export const CONDITION_FIELDS = ["status", "group", "priority", "assignee", "done", "due_date", "column"] as const;
@@ -411,6 +419,12 @@ export function describeAutomation<B extends BoardLookup>(a: Automation, boards:
                   : "No"
                 : String(ac.value ?? "");
       then = `completar «${col?.name ?? "una columna"}» con ${val ? `«${val}»` : "un valor"}`;
+      break;
+    }
+    case "add_checklist": {
+      const col = source?.checklists?.find((c) => c.id === ac.column_id)?.name ?? columnName(source, ac.column_id);
+      const sec = (ac.section ?? "").trim();
+      then = `sumar los pasos de «${ac.template_name ?? "una plantilla"}» al checklist${col ? ` «${col}»` : ""}${sec ? ` en la sección «${sec === "{carpeta}" ? "nombre de la carpeta" : sec}»` : ""}${ac.assign === "assignee" ? ", asignados al responsable" : ac.assign === "user" ? `, asignados a ${personName(ac.user_id)}` : ""}`;
       break;
     }
     case "add_comment":

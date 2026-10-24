@@ -80,6 +80,7 @@ ACCIONES (action_type) y action_config:
 - "set_assignee": action_config.mode "user" (con user_id) | "creator" | "clear"
 - "set_due_date": action_config.mode "offset" (con days = hoy + días) | "clear"
 - "set_column": action_config.column_id y mode "value" (con value) | "offset" (solo fechas, con days) | "clear". Para columnas de etiqueta value = id de la opción.
+- "add_checklist": suma al checklist del ítem los pasos de una plantilla, debajo de los que ya tiene (no borra nada). action_config.column_id (id de un checklist del tablero), action_config.template_id (id de una plantilla), action_config.section = título de la sección que agrupa los pasos nuevos ("{carpeta}" = nombre de la carpeta, que es lo habitual; "" = sin sección), action_config.assign opcional "assignee" (responsable del ítem) | "user" (con user_id). Si el ítem ya tiene esa sección, no repite los pasos. Ideal para circuitos donde cada carpeta es un equipo: "cuando entra a Logística, sumar los pasos de Logística" = group_changed + add_checklist.
 - "add_comment": action_config.text (puede usar {titulo}, {tablero}, {carpeta}, {estado}, {vencimiento}, {responsable}, {hoy})
 - "notify": action_config.to "assignee" | "creator" | "user" (con user_id) | "admins"; action_config.message opcional (mismas variables).
 - "create_item": action_config.title, y opcionales group_id, status_id, priority, due_days, assignee_id. target_board_id = tablero donde se crea.
@@ -99,6 +100,7 @@ type Ctx = {
   groups: { id: string; name: string }[];
   columns: { id: string; name: string; kind: string; options?: { id: string; label: string }[] }[];
   checklists: { id: string; name: string }[];
+  templates: { id: string; name: string }[];
   boards: { id: string; name: string; statuses: { id: string; label: string }[]; groups: { id: string; name: string }[] }[];
   people: { id: string; name: string }[];
 };
@@ -110,7 +112,7 @@ Tu trabajo: convertir el pedido de la persona en UNA regla del motor de Vetta.
 ${SPEC}
 
 DATOS DEL TABLERO "${ctx.board.name}" (id ${ctx.board.id}). Usá SOLO estos ids, nunca inventes:
-${JSON.stringify({ estados: ctx.statuses, carpetas: ctx.groups, columnas: ctx.columns, checklists: ctx.checklists, otros_tableros: ctx.boards, personas: ctx.people })}
+${JSON.stringify({ estados: ctx.statuses, carpetas: ctx.groups, columnas: ctx.columns, checklists: ctx.checklists, plantillas_de_checklist: ctx.templates, otros_tableros: ctx.boards, personas: ctx.people })}
 
 Respondé SOLO un objeto JSON, sin texto extra, con UNA de estas dos formas:
 1) Si se puede armar la regla:
@@ -134,11 +136,12 @@ async function authenticate(req: Request) {
 }
 
 async function loadContext(boardId: string, workspaceId: string): Promise<Ctx> {
-  const [{ data: board }, { data: boards }, { data: columns }, { data: members }] = await Promise.all([
+  const [{ data: board }, { data: boards }, { data: columns }, { data: members }, { data: templates }] = await Promise.all([
     admin.from("boards").select("id, name").eq("id", boardId).single(),
     admin.from("boards").select("id, name").eq("workspace_id", workspaceId).eq("is_archived", false),
     admin.from("board_columns").select("id, name, kind, options, position").eq("board_id", boardId).order("position"),
     admin.from("workspace_members").select("user_id").eq("workspace_id", workspaceId),
+    admin.from("checklist_templates").select("id, name").eq("workspace_id", workspaceId).order("name"),
   ]);
   const ids = [...new Set([boardId, ...(boards ?? []).map((b) => b.id)])];
   const userIds = (members ?? []).map((m) => m.user_id);
@@ -162,6 +165,7 @@ async function loadContext(boardId: string, workspaceId: string): Promise<Ctx> {
         ...(Array.isArray(c.options) && c.options.length ? { options: (c.options as { id: string; label: string }[]).map((o) => ({ id: o.id, label: o.label })) } : {}),
       })),
     checklists: (columns ?? []).filter((c) => c.kind === "checklist").map((c) => ({ id: c.id, name: c.name })),
+    templates: (templates ?? []).map((t) => ({ id: t.id, name: t.name })),
     boards: (boards ?? [])
       .filter((b) => b.id !== boardId)
       .map((b) => ({

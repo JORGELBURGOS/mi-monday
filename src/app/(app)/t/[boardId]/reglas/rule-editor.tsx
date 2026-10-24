@@ -130,6 +130,32 @@ const notDone: Condition = { field: "done", op: "is", value: "false" };
 
 export const RECIPES: Recipe[] = [
   {
+    id: "team-steps",
+    label: "Al entrar a una carpeta, sumar los pasos de ese equipo",
+    build: (s, d) => ({
+      ...d,
+      name: "Pasos del equipo",
+      trigger_type: "group_changed",
+      trigger_group_id: s.groups[1]?.id ?? s.groups[0]?.id ?? "",
+      tc: {},
+      mode: "add_checklist",
+      ac: { section: "{carpeta}", column_id: s.checklists?.[0]?.id },
+    }),
+  },
+  {
+    id: "checklist-next",
+    label: "Checklist completo → pasar a la carpeta siguiente",
+    build: (s, d) => ({
+      ...d,
+      name: "Avanzar al completar",
+      trigger_type: "checklist_changed",
+      tc: { event: "completed" },
+      conditions: s.groups[0] ? [{ field: "group", op: "is", value: s.groups[0].id }] : [],
+      mode: "set_group",
+      ac: { group_id: s.groups[1]?.id },
+    }),
+  },
+  {
     id: "due-soon",
     label: "Avisar 2 días antes del vencimiento",
     build: (_s, d) => ({
@@ -247,6 +273,7 @@ export function RuleEditor({
   source,
   targets,
   members,
+  templates = [],
   rule,
   initial,
   onClose,
@@ -255,6 +282,8 @@ export function RuleEditor({
   source: FlowBoard;
   targets: FlowBoard[];
   members: Member[];
+  /** Plantillas de checklist de la empresa (para "Agregar pasos al checklist"). */
+  templates?: { id: string; name: string }[];
   rule: Automation | null;
   initial: Draft;
   onClose: () => void;
@@ -291,7 +320,13 @@ export function RuleEditor({
 
   const changeMode = (m: ActionMode) =>
     setD((x) => {
-      const next = { ...x, mode: m, ac: {}, target_status: "", target_group_id: "" };
+      const next = {
+        ...x,
+        mode: m,
+        ac: m === "add_checklist" ? { section: "{carpeta}", column_id: source.checklists?.[0]?.id } : {},
+        target_status: "",
+        target_group_id: "",
+      };
       if (CHAIN.includes(m) || m === "create_item") {
         const t = targets.find((b) => b.id === x.target_board_id) ?? targets[0];
         next.target_board_id = t?.id ?? source.id;
@@ -420,7 +455,7 @@ export function RuleEditor({
             {chain ? (
               <ChainDetails uid={uid} d={d} source={source} target={target} targets={targets} members={members} linked={linked} setD={setD} set={set} changeTarget={changeTarget} />
             ) : (
-              <ActionDetails uid={uid} d={d} source={source} target={target} targets={targets} members={members} setAc={setAc} changeTarget={changeTarget} />
+              <ActionDetails uid={uid} d={d} source={source} target={target} targets={targets} members={members} templates={templates} setAc={setAc} changeTarget={changeTarget} />
             )}
           </div>
         </Step>
@@ -963,6 +998,7 @@ function ActionDetails({
   target,
   targets,
   members,
+  templates,
   setAc,
   changeTarget,
 }: {
@@ -972,6 +1008,7 @@ function ActionDetails({
   target: FlowBoard | undefined;
   targets: FlowBoard[];
   members: Member[];
+  templates: { id: string; name: string }[];
   setAc: (patch: Partial<ActionConfig>) => void;
   changeTarget: (id: string) => void;
 }) {
@@ -1100,6 +1137,70 @@ function ActionDetails({
               <Input id={`${uid}-sdays`} type="number" min={-365} max={365} value={ac.days ?? 0} onChange={(e) => setAc({ days: Number(e.target.value) || 0 })} />
             </Field>
           )}
+        </div>
+      );
+    }
+    case "add_checklist": {
+      const lists = source.checklists ?? [];
+      if (lists.length === 0)
+        return <p className="text-sm text-muted">Este tablero todavía no tiene checklist. Agregá una columna Checklist (con el + de los encabezados) y volvé a armar la regla.</p>;
+      const secMode = ac.section === undefined || ac.section === "{carpeta}" ? "group" : ac.section === "" ? "none" : "custom";
+      return (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field id={`${uid}-ckcol`} label="Checklist">
+            <Select id={`${uid}-ckcol`} value={ac.column_id ?? ""} onChange={(e) => setAc({ column_id: e.target.value || undefined })}>
+              <option value="">Elegí el checklist</option>
+              {lists.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field id={`${uid}-cktpl`} label="Pasos a sumar (plantilla)" hint={templates.length ? undefined : "Todavía no hay plantillas: creálas en Plantillas de checklist."}>
+            <Select id={`${uid}-cktpl`} value={ac.template_id ?? ""} onChange={(e) => setAc({ template_id: e.target.value || undefined })}>
+              <option value="">Elegí una plantilla</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field id={`${uid}-cksec`} label="Sección">
+            <Select
+              id={`${uid}-cksec`}
+              value={secMode}
+              onChange={(e) => setAc({ section: e.target.value === "group" ? "{carpeta}" : e.target.value === "none" ? "" : "Etapa" })}
+            >
+              <option value="group">Con el nombre de la carpeta</option>
+              <option value="custom">Con otro título</option>
+              <option value="none">Sin sección</option>
+            </Select>
+          </Field>
+          {secMode === "custom" ? (
+            <Field id={`${uid}-cksect`} label="Título de la sección" hint={PLACEHOLDERS_HELP}>
+              <Input id={`${uid}-cksect`} value={ac.section ?? ""} maxLength={300} onChange={(e) => setAc({ section: e.target.value })} />
+            </Field>
+          ) : (
+            <div className="hidden sm:block" />
+          )}
+          <Field id={`${uid}-ckwho`} label="Asignar los pasos nuevos a">
+            <Select
+              id={`${uid}-ckwho`}
+              value={ac.assign ?? ""}
+              onChange={(e) => setAc({ assign: (e.target.value || undefined) as ActionConfig["assign"], ...(e.target.value === "user" ? {} : { user_id: undefined }) })}
+            >
+              <option value="">Nadie (los toma el equipo)</option>
+              <option value="assignee">El responsable del ítem</option>
+              <option value="user">Una persona en particular</option>
+            </Select>
+          </Field>
+          {ac.assign === "user" && people(ac.user_id, (v) => setAc({ user_id: v }), `${uid}-ckuser`, "Persona")}
+          <p className="text-xs text-muted sm:col-span-2">
+            Los pasos se suman debajo de los que ya tiene el ítem, agrupados en su sección: lo que hicieron las carpetas anteriores queda tal cual. Si el ítem ya
+            tiene esa sección (por ejemplo, porque volvió a una carpeta), no se repiten. Quien recibe un paso asignado recibe un aviso.
+          </p>
         </div>
       );
     }
