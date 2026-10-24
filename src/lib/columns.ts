@@ -220,6 +220,11 @@ export function cleanCheckItem(i: Partial<CheckItem> & { text: string }): CheckI
   }
   return out;
 }
+
+/** Pasos nuevos (sin tildar) a partir de los pasos de una plantilla. */
+export function checklistFromTemplate(items: ChecklistTemplate["items"]): CheckItem[] {
+  return items.map((i) => cleanCheckItem({ text: i.text, header: i.header, note: i.note }));
+}
 export type CellValue = string | number | boolean | string[] | FileRef[] | CheckItem[];
 
 export function isFileList(v: unknown): v is FileRef[] {

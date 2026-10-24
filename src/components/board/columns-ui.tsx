@@ -40,6 +40,7 @@ import {
 import { BUILTIN_DEFAULT_LABELS, builtinLabel, type BoardSettings, type BuiltinKey, type ColumnKey } from "@/lib/board-settings";
 import { FUNCTIONS, FUNCTION_GROUPS, formulaRefs, type FormulaResult } from "@/lib/formula";
 import { LabelEditor, type Label, type LabelEditing } from "./label-picker";
+import { applyChecklistTemplateAction } from "@/app/actions/columns";
 
 /* ------------------------------------------------------------ definiciones */
 
@@ -530,6 +531,7 @@ export function ColumnSettingsDialog({
                 ))}
               </Select>
             </Field>
+            {col && s.templateId && <ApplyTemplateNow columnId={col.id} templateId={s.templateId} templateName={templates.find((t) => t.id === s.templateId)?.name ?? "la plantilla"} />}
             {templates.length === 0 && <p className="text-xs text-muted">Todavía no hay plantillas. Guardá un checklist como plantilla desde cualquier elemento o desde Plantillas de la empresa.</p>}
             <Field id="col-oncomplete" label="Al completar todos los pasos, pasar el elemento a" hint="Corre igual que un cambio de estado manual: dispara las reglas y queda en el recorrido">
               <Select id="col-oncomplete" value={s.onCompleteStatusId ?? ""} onChange={(e) => set({ onCompleteStatusId: e.target.value || undefined })}>
@@ -783,6 +785,48 @@ function MirrorSettings({
         </Select>
       </Field>
       {connect && !board && <p className="text-xs text-muted sm:col-span-2">Guardá y volvé a abrir para ver también las columnas propias del tablero conectado.</p>}
+    </div>
+  );
+}
+
+/** Cargar la plantilla ahora en los elementos que todavía no tienen checklist. */
+function ApplyTemplateNow({ columnId, templateId, templateName }: { columnId: string; templateId: string; templateName: string }) {
+  const [step, setStep] = useState<"idle" | "confirm" | "running">("idle");
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const run = async () => {
+    setStep("running");
+    const res = await applyChecklistTemplateAction(columnId, templateId);
+    setStep("idle");
+    setResult(
+      res.ok
+        ? { ok: true, text: res.data.count ? `Listo: «${templateName}» se cargó en ${res.data.count} ${res.data.count === 1 ? "elemento" : "elementos"}.` : "Todos los elementos ya tenían checklist." }
+        : { ok: false, text: res.error },
+    );
+  };
+  return (
+    <div className="rounded-lg bg-surface-2 p-3 text-sm">
+      <p className="text-muted">La plantilla automática vale para los elementos nuevos. Para los que ya existen y no tienen pasos:</p>
+      {step === "confirm" ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="font-semibold">¿Cargar «{templateName}» en todos los elementos sin checklist?</span>
+          <Button type="button" size="sm" onClick={run}>
+            Sí, cargar
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setStep("idle")}>
+            Cancelar
+          </Button>
+        </div>
+      ) : (
+        <Button type="button" size="sm" variant="secondary" className="mt-2" disabled={step === "running"} onClick={() => (setResult(null), setStep("confirm"))}>
+          {step === "running" ? "Cargando…" : "Cargar en los elementos que no tienen checklist"}
+        </Button>
+      )}
+      {result && (
+        <p role="status" className={cn("mt-2 text-xs", result.ok ? "text-success" : "text-danger")}>
+          {result.text}
+        </p>
+      )}
+      <p className="mt-2 text-xs text-subtle">No cambia los elementos que ya tienen pasos ni los subelementos.</p>
     </div>
   );
 }

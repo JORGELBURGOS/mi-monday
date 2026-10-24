@@ -51,6 +51,7 @@ export function TaskDialog({
   onDelete,
   onDuplicate,
   endPosition,
+  onAddChecklist,
 }: {
   task: Task;
   statuses: Status[];
@@ -72,6 +73,8 @@ export function TaskDialog({
   onDuplicate: () => void;
   /** Posición para ubicar la tarea al final de una carpeta. */
   endPosition: (groupId: string) => number;
+  /** Crea una columna Checklist en el tablero (solo para quien lo administra). */
+  onAddChecklist?: () => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
 }) {
   const uid = useId();
   // Solo se guardan los campos que la persona tocó: si mientras tanto una regla
@@ -96,6 +99,7 @@ export function TaskDialog({
   const initialValues = readValues(task.custom_values);
   const [values, setValues] = useState<Record<string, CellValue | null>>(initialValues);
   const [tab, setTab] = useState<string>("comments");
+  const [addingChecklist, setAddingChecklist] = useState(false);
   const ctx = useCellContext();
   const checklistCols = columns.filter((c) => c.kind === "checklist");
   const historyLookup = useMemo(() => ({ columns, members }), [columns, members]);
@@ -238,6 +242,23 @@ export function TaskDialog({
                   {label}
                 </button>
               ))}
+              {checklistCols.length === 0 && onAddChecklist && !readOnly && (
+                <button
+                  type="button"
+                  disabled={addingChecklist}
+                  title="Agrega una columna Checklist al tablero: cada elemento tiene su propia lista de pasos"
+                  onClick={async () => {
+                    setAddingChecklist(true);
+                    const r = await onAddChecklist();
+                    setAddingChecklist(false);
+                    if (r.ok) setTab(`ck:${r.id}`);
+                    else setError(r.error);
+                  }}
+                  className="h-8 whitespace-nowrap rounded-md px-3 text-[13px] font-semibold text-accent hover:bg-surface disabled:opacity-60"
+                >
+                  {addingChecklist ? "Creando…" : "+ Checklist"}
+                </button>
+              )}
             </div>
             <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${tab}`}>
               {tab === "comments" ? (
@@ -245,7 +266,7 @@ export function TaskDialog({
               ) : tab.startsWith("ck:") ? (
                 (() => {
                   const col = checklistCols.find((c) => `ck:${c.id}` === tab);
-                  if (!col) return null;
+                  if (!col) return <p className="text-sm text-muted">Preparando el checklist…</p>;
                   const items: CheckItem[] = isChecklist(values[col.id] ?? undefined) ? (values[col.id] as CheckItem[]) : [];
                   return (
                     <ChecklistEditor

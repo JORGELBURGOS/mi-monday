@@ -13,6 +13,7 @@ import {
   CHECK_STATUS_LABELS,
   checklistProgress,
   cleanCheckItem,
+  checklistFromTemplate,
   newOptionId,
   type CheckItem,
   type CheckStatus,
@@ -78,7 +79,7 @@ export function checklistToText(items: CheckItem[], members: Member[] = []): str
 }
 
 export function fromTemplate(t: Pick<ChecklistTemplate, "items">): CheckItem[] {
-  return t.items.map((i) => cleanCheckItem({ text: i.text, header: i.header, note: i.note }));
+  return checklistFromTemplate(t.items);
 }
 
 /**

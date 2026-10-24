@@ -18,7 +18,9 @@ import {
   readValues,
   stringList,
   checklistProgress,
+  checklistFromTemplate,
   type CellValue,
+  type ChecklistTemplate,
   type ColumnKind,
 } from "@/lib/columns";
 import { parseBoardSettings, orderedKeys, type ColumnKey } from "@/lib/board-settings";
@@ -256,4 +258,51 @@ export async function setCustomValuesAction(taskId: string, values: Record<strin
   }
   refresh();
   return ok(undefined);
+}
+
+/**
+ * Carga una plantilla en el checklist de los elementos del tablero que todavía
+ * no tienen pasos en esa columna. No toca los que ya tienen (ni los subelementos).
+ * Corre con los permisos de quien la usa: la base solo deja cambiar los
+ * elementos que esa persona puede editar.
+ */
+export async function applyChecklistTemplateAction(columnId: string, templateId: string): Promise<ActionResult<{ count: number }>> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  if (!uuidSchema.safeParse(columnId).success || !uuidSchema.safeParse(templateId).success) return fail("Datos inválidos.");
+
+  const { data: column } = await ctx.supabase.from("board_columns").select("id, board_id, kind").eq("id", columnId).maybeSingle();
+  if (!column || column.kind !== "checklist") return fail("La columna ya no existe.");
+  const { data: board } = await ctx.supabase.from("boards").select("workspace_id").eq("id", column.board_id).maybeSingle();
+  if (!board) return fail("No tenés acceso a este tablero.");
+  const { data: template } = await ctx.supabase.from("checklist_templates").select("items").eq("id", templateId).eq("workspace_id", board.workspace_id).maybeSingle();
+  if (!template || !Array.isArray(template.items) || template.items.length === 0) return fail("La plantilla ya no existe o está vacía.");
+
+  const { data: tasks, error } = await ctx.supabase.from("tasks").select("id, custom_values").eq("board_id", column.board_id).is("parent_id", null).limit(5000);
+  if (error) return fromDb(error, "No se pudieron leer los elementos.");
+  const empty = (tasks ?? []).filter((t) => {
+    const v = readValues(t.custom_values)[columnId];
+    return !Array.isArray(v) || v.length === 0;
+  });
+  if (empty.length === 0) return ok({ count: 0 });
+
+  let count = 0;
+  for (let i = 0; i < empty.length; i += 20) {
+    const batch = empty.slice(i, i + 20);
+    const results = await Promise.all(
+      batch.map((t) => {
+        // Cada elemento con sus propios ids de pasos.
+        const steps = checklistFromTemplate(template.items as ChecklistTemplate["items"]);
+        return ctx.supabase
+          .from("tasks")
+          .update({ custom_values: { ...readValues(t.custom_values), [columnId]: steps } as unknown as Json })
+          .eq("id", t.id)
+          .select("id");
+      }),
+    );
+    count += results.filter((r) => !r.error && r.data?.length).length;
+  }
+  refresh();
+  if (count === 0) return fail("No tenés permiso para cambiar los elementos de este tablero.");
+  return ok({ count });
 }

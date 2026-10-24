@@ -743,6 +743,16 @@ export function BoardView({
             setDeleting(openTask);
           }}
           onDuplicate={() => handlers.onDuplicateTask(openTask)}
+          onAddChecklist={
+            editable
+              ? async () => {
+                  const res = await createColumnAction(boardId, { name: "Checklist", kind: "checklist", options: [], settings: {} });
+                  if (!res.ok) return { ok: false as const, error: res.error };
+                  toast.success("Se agregó la columna Checklist al tablero.");
+                  return { ok: true as const, id: res.data.id };
+                }
+              : undefined
+          }
           endPosition={(groupId) => {
             const list = (tasksByGroup.get(groupId) ?? []).filter((t) => t.id !== openTask.id);
             return positionAt(list, list.length);
