@@ -43,11 +43,11 @@ async function placeInOrder(ctx: Ctx, boardId: string, key: ColumnKey, afterKey?
   await ctx.supabase.from("boards").update({ settings: { ...settings, order } }).eq("id", boardId);
 }
 
-/** Columna de fórmula "Avance de …" que muestra el % del checklist, a su derecha. */
+/** Columna de fórmula "Cumplimiento de …" que muestra el % del checklist, a su derecha. */
 async function addChecklistProgress(ctx: Ctx, boardId: string, checklistId: string, checklistName: string, position: number) {
   const { data: cols } = await ctx.supabase.from("board_columns").select("name").eq("board_id", boardId);
   const taken = new Set((cols ?? []).map((c) => c.name.trim().toLowerCase()));
-  const base = `Avance de ${checklistName}`.slice(0, 56);
+  const base = `Cumplimiento de ${checklistName}`.slice(0, 56);
   let name = base;
   for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} ${n}`;
   const { data } = await ctx.supabase
@@ -100,7 +100,7 @@ export async function createColumnAction(
     .single();
   if (error || !data) return fromDb(error, "No se pudo crear la columna.");
   await placeInOrder(ctx, boardId, `c:${data.id}`, afterKey);
-  // Todo checklist viene con su columna de avance (% de pasos tildados) al lado.
+  // Todo checklist viene con su columna de cumplimiento (% de pasos tildados) al lado.
   if (parsed.data.kind === "checklist") await addChecklistProgress(ctx, boardId, data.id, parsed.data.name, (last?.position ?? 0) + POSITION_STEP);
   refresh();
   return ok({ id: data.id });
