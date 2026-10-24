@@ -229,6 +229,7 @@ export function ChecklistCell({ value, label, disabled, cell, members, taskId, o
             templates={ctx?.templates ?? []}
             workspaceId={ctx?.workspaceId}
             disabled={disabled}
+            lockedSections={ctx?.lockedSections}
             onChange={(next) => onChange(next.length ? next : null)}
           />
         </Dialog>

@@ -34,6 +34,7 @@ export function AutomationManager({
   stats,
   aiEnabled = false,
   templates = [],
+  teams = [],
 }: {
   boardId: string;
   boards: FlowBoard[];
@@ -45,6 +46,7 @@ export function AutomationManager({
   aiEnabled?: boolean;
   /** Plantillas de checklist de la empresa. */
   templates?: { id: string; name: string }[];
+  teams?: { id: string; name: string }[];
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -240,6 +242,7 @@ export function AutomationManager({
           targets={targets}
           members={members}
           templates={templates}
+          teams={teams}
           rule={editing.rule}
           initial={editing.draft}
           onClose={() => setEditing(null)}

@@ -28,7 +28,9 @@ export function fromDb(error: PostgrestError | { message: string; code?: string 
   const code = "code" in error ? error.code : undefined;
   switch (code) {
     case "42501":
-      return fail("No tenés permiso para hacer esto.");
+      // Los permisos de Vetta (tablero, carpeta, columna, checklist) vienen redactados;
+      // los de Postgres ("permission denied…", "row-level security") no.
+      return fail(/permission denied|row-level security|violates/i.test(error.message) ? "No tenés permiso para hacer esto." : error.message);
     case "P0001":
       // Mensajes propios de la base, ya redactados para el usuario.
       return fail(error.message);

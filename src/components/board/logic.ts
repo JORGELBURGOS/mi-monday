@@ -33,7 +33,8 @@ export function matchesFilters(t: Task, f: Filters) {
   if (f.search.trim() && !normalize(t.title).includes(normalize(f.search.trim()))) return false;
   if (f.status === "none" ? t.status_id !== null : f.status !== "all" && t.status_id !== f.status) return false;
   if (f.priority !== "all" && t.priority !== f.priority) return false;
-  if (f.assignee === "none" ? t.assignee_id !== null : f.assignee !== "all" && t.assignee_id !== f.assignee) return false;
+  const who = [...(t.assignee_ids ?? (t.assignee_id ? [t.assignee_id] : [])), ...(t.team_ids ?? [])];
+  if (f.assignee === "none" ? who.length > 0 : f.assignee !== "all" && !who.includes(f.assignee)) return false;
   return true;
 }
 

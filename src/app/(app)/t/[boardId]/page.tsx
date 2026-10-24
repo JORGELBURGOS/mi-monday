@@ -6,6 +6,7 @@ import { getBoardData } from "@/lib/data";
 import { uuidSchema } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 import { BoardView } from "@/components/board/board-view";
+import { BOARD_ROLE_LABELS, canWrite } from "@/lib/teams";
 import { parseBoardSettings } from "@/lib/board-settings";
 import { BoardHeaderActions } from "@/components/board/board-header-actions";
 import { IconLock, IconUsers } from "@/components/ui/icons";
@@ -53,6 +54,11 @@ export default async function BoardPage({ params, searchParams }: Props) {
               {board.visibility === "private" ? "Acceso restringido" : "Todo el equipo"}
             </span>
             {board.description && <span className="max-w-2xl">{board.description}</span>}
+            {data.access.role && data.access.role !== "admin" && data.access.role !== "editor" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold" title={BOARD_ROLE_LABELS[data.access.role].help}>
+                <IconLock size={12} /> Tu permiso: {BOARD_ROLE_LABELS[data.access.role].label}
+              </span>
+            )}
           </p>
         </div>
         <BoardHeaderActions
@@ -86,7 +92,9 @@ export default async function BoardPage({ params, searchParams }: Props) {
         columns={data.columns}
         initialTaskId={typeof sp.item === "string" ? sp.item : undefined}
         serverToday={new Date().toISOString().slice(0, 10)}
-        readOnly={board.is_archived}
+        readOnly={board.is_archived || !canWrite(data.access)}
+        teams={data.teams}
+        access={data.access}
       />
     </div>
   );

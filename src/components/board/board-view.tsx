@@ -8,6 +8,8 @@ import { createGroupAction, deleteGroupAction, saveStatusesAction, updateBoardSe
 import { createColumnAction, deleteColumnAction, duplicateColumnAction, setCustomValuesAction, updateColumnAction } from "@/app/actions/columns";
 import { COLUMN_KIND_LABELS, LABEL_KINDS, defaultLabels, readValues, stringList, valueLabel, type BoardColumn, type ColumnKind, type ColumnSettings } from "@/lib/columns";
 import { builtinLabel, orderedKeys, priorityLabels, type BoardSettings, type ColumnKey } from "@/lib/board-settings";
+import type { BuiltinKey } from "@/lib/board-settings";
+import { assigneeLabel as assigneeText, canCreateIn, canEditTask, lockedSections, readEditors, type BoardAccess, type Team } from "@/lib/teams";
 import { formulaValue, sortableValue, type RowEnv } from "@/lib/row-values";
 import type { ActionResult } from "@/lib/action-result";
 import { cn } from "@/lib/cn";
@@ -25,6 +27,8 @@ import { CalendarView } from "./calendar-view";
 import { GanttView } from "./gantt-view";
 import { KanbanView } from "./kanban-view";
 import { TaskDialog } from "./task-dialog";
+import { EditorsDialog } from "./editors-dialog";
+import { setColumnEditorsAction, setGroupEditorsAction } from "@/app/actions/teams";
 import { AddColumnButton, ColumnSettingsDialog, ColumnsVisibility, buildColumnDefs, type ColumnDef, type HeaderHandlers } from "./columns-ui";
 import type { Label } from "./label-picker";
 import { CellContext, type CellCtx, type LinkedBoard, type LinkedItem } from "./cell-context";
@@ -64,6 +68,8 @@ export function BoardView({
   serverToday,
   readOnly,
   initialTaskId,
+  teams,
+  access,
 }: {
   boardId: string;
   workspaceId: string;
@@ -84,6 +90,10 @@ export function BoardView({
   readOnly: boolean;
   /** Ítem a abrir al cargar (por ejemplo, desde el recorrido de otro tablero). */
   initialTaskId?: string;
+  /** Equipos de la empresa. */
+  teams: Team[];
+  /** Lo que la persona conectada puede hacer en el tablero. */
+  access: BoardAccess;
 }) {
   const toast = useToast();
   const today = useSyncExternalStore(noopSubscribe, todayIsoLocal, () => serverToday);
@@ -106,6 +116,7 @@ export function BoardView({
   const [deletingColumn, setDeletingColumn] = useState<BoardColumn | null>(null);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [settingsKey, setSettingsKey] = useState<string | null>(null);
+  const [editorsFor, setEditorsFor] = useState<{ kind: "group"; group: Group } | { kind: "column"; def: ColumnDef } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (id: string, open?: boolean) =>
     setExpanded((s) => {
@@ -154,7 +165,11 @@ export function BoardView({
       }
       if (filters.status === "none" ? t.status_id !== null : filters.status !== "all" && t.status_id !== filters.status) return false;
       if (filters.priority !== "all" && t.priority !== filters.priority) return false;
-      if (filters.assignee === "none" ? t.assignee_id !== null : filters.assignee !== "all" && t.assignee_id !== filters.assignee) return false;
+      if (filters.assignee === "none") {
+        if ((t.assignee_ids?.length ?? 0) + (t.team_ids?.length ?? 0) > 0) return false;
+      } else if (filters.assignee === "me") {
+        if (!t.assignee_ids?.includes(access.userId) && !t.team_ids?.some((id) => access.teamIds.includes(id))) return false;
+      } else if (filters.assignee !== "all" && !t.assignee_ids?.includes(filters.assignee) && !t.team_ids?.includes(filters.assignee)) return false;
       if (filters.column) {
         const [colId, val] = filters.column.split("|");
         const v = readValues(t.custom_values)[colId];
@@ -166,7 +181,7 @@ export function BoardView({
       }
       return true;
     },
-    [filters, optColumns, members],
+    [filters, optColumns, members, access],
   );
   const active = Boolean(filters.search.trim()) || filters.status !== "all" || filters.priority !== "all" || filters.assignee !== "all" || Boolean(filters.column);
 
@@ -187,10 +202,8 @@ export function BoardView({
             return priorities.find((p) => p.value === t.priority)?.rank ?? null;
           case "due":
             return t.due_date;
-          case "assignee": {
-            const m = members.find((x) => x.user_id === t.assignee_id);
-            return m ? displayName(m) : null;
-          }
+          case "assignee":
+            return assigneeText(t, members, teams) || null;
           default: {
             const c = optColumns.find((x) => `c:${x.id}` === sort.key);
             return c ? sortableValue(t, c, env) : null;
@@ -207,7 +220,7 @@ export function BoardView({
         return factor * c || a.position - b.position;
       });
     },
-    [sort, statuses, priorities, members, optColumns, env],
+    [sort, statuses, priorities, members, teams, optColumns, env],
   );
   const manual = !sort;
 
@@ -292,10 +305,12 @@ export function BoardView({
         status_id: statuses[0]?.id ?? null,
         priority: "medium",
         assignee_id: null,
+        assignee_ids: [],
+        team_ids: [],
         due_date: null,
         custom_values: {},
         position: Number.MAX_SAFE_INTEGER,
-        created_by: null,
+        created_by: access.userId,
         parent_id: parentId ?? null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -313,6 +328,7 @@ export function BoardView({
       run(() => updateGroupAction(g.id, { position }), { group: { type: "update", id: g.id, patch: { position } } });
     },
     onDeleteGroup: (g) => setDeletingGroup(g),
+    onGroupEditors: canManage ? (g) => setEditorsFor({ kind: "group", group: g }) : undefined,
     onAddColumn: (kind) => addColumn(kind),
   };
 
@@ -329,6 +345,7 @@ export function BoardView({
     def.column ? patchColumn(def.column, { settings: { ...def.column.settings, hidden } }) : setBuiltin(def, { hidden });
 
   const headerHandlers: HeaderHandlers = {
+    onEditors: editable ? (def) => setEditorsFor({ kind: "column", def }) : undefined,
     onRename: (def, name) => (def.column ? patchColumn(def.column, { name }) : setBuiltin(def, { label: name })),
     onSettings: (def) => setSettingsKey(def.key),
     onMove: (def, dir) => {
@@ -425,10 +442,7 @@ export function BoardView({
           if (d.builtin === "status") return statuses.find((s) => s.id === t.status_id)?.label ?? "";
           if (d.builtin === "priority") return priorities.find((p) => p.value === t.priority)?.label ?? "";
           if (d.builtin === "due") return t.due_date ?? "";
-          if (d.builtin === "assignee") {
-            const m = members.find((x) => x.user_id === t.assignee_id);
-            return m ? displayName(m) : "";
-          }
+          if (d.builtin === "assignee") return assigneeText(t, members, teams);
           const c = d.column!;
           if (c.kind === "formula") {
             const r = formulaValue(t, c, env);
@@ -475,8 +489,16 @@ export function BoardView({
       linkedBoards: new Map(linkedBoards.map((b) => [b.id, b])),
       templates: checklistTemplates,
       members,
+      teams,
+      access,
+      groupEditors: new Map(optimisticGroups.map((g) => [g.id, readEditors(g.editors)])),
+      columnEditors: new Map([
+        ...allDefs.map((d) => [d.key, readEditors(d.column ? d.column.settings.editors : optSettings.columns?.[d.builtin as BuiltinKey]?.editors)] as const),
+        ["title", readEditors(optSettings.columns?.title?.editors)] as const,
+      ]),
+      lockedSections: lockedSections(access, optimisticGroups),
     }),
-    [workspaceId, boardId, optimisticTasks, doneIds, statuses, linkedItems, linkedBoards, checklistTemplates, members],
+    [workspaceId, boardId, optimisticTasks, doneIds, statuses, linkedItems, linkedBoards, checklistTemplates, members, teams, access, optimisticGroups, allDefs, optSettings],
   );
 
   const labelFilterOptions = optColumns.filter((c) => c.kind === "list" || c.kind === "tags" || c.kind === "checkbox" || c.kind === "person");
@@ -564,12 +586,24 @@ export function BoardView({
             className={cn("h-8 w-auto max-w-48 text-[13px]", filters.assignee !== "all" && "border-accent")}
           >
             <option value="all">{assigneeLabel}: todos</option>
+            <option value="me">Míos (yo o mi equipo)</option>
             <option value="none">Sin {assigneeLabel.toLowerCase()}</option>
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {displayName(m)}
-              </option>
-            ))}
+            {teams.length > 0 && (
+              <optgroup label="Equipos">
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label="Personas">
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {displayName(m)}
+                </option>
+              ))}
+            </optgroup>
           </Select>
           {labelFilterOptions.length > 0 && (
             <Select
@@ -678,7 +712,7 @@ export function BoardView({
                 env={env}
                 doneIds={doneIds}
                 today={today}
-                readOnly={readOnly}
+                readOnly={readOnly || !canCreateIn(access, readEditors(g.editors))}
                 canManage={canManage}
                 handlers={handlers}
                 headerHandlers={headerHandlers}
@@ -731,7 +765,16 @@ export function BoardView({
           env={env}
           labelEditors={labelEditors}
           today={today}
-          readOnly={readOnly || openTask.id.startsWith("tmp-")}
+          readOnly={
+            readOnly ||
+            openTask.id.startsWith("tmp-") ||
+            !canEditTask(
+              access,
+              openTask,
+              readEditors(optimisticGroups.find((g) => g.id === openTask.group_id)?.editors),
+              openTask.parent_id ? optimisticTasks.find((t) => t.id === openTask.parent_id) : null,
+            )
+          }
           onClose={() => setOpenTaskId(null)}
           onOpenTask={(id) => setOpenTaskId(id)}
           subitems={childrenOf.get(openTask.id) ?? []}
@@ -791,6 +834,29 @@ export function BoardView({
             cols[settingsDef.builtin!] = { ...cols[settingsDef.builtin!], label, hidden };
             const res = await updateBoardSettingsAction(boardId, { ...optSettings, columns: cols });
             return res.ok ? null : res.error;
+          }}
+        />
+      )}
+
+      {editorsFor && (
+        <EditorsDialog
+          title={editorsFor.kind === "group" ? `Quién edita la carpeta «${editorsFor.group.name}»` : `Quién puede cambiar «${editorsFor.def.label}»`}
+          description={
+            editorsFor.kind === "group"
+              ? "Solo estas personas o equipos crean y editan los elementos de la carpeta (se pueden pasar elementos a ella desde otras). En el checklist, la sección con el mismo nombre que la carpeta también queda solo para ellos."
+              : "Solo estas personas o equipos pueden cambiar el valor de esta columna en los elementos."
+          }
+          initial={editorsFor.kind === "group" ? readEditors(editorsFor.group.editors) : (cellCtx.columnEditors.get(editorsFor.def.key) ?? {})}
+          people={members}
+          teams={teams}
+          onClose={() => setEditorsFor(null)}
+          onSave={async (e) => {
+            const res =
+              editorsFor.kind === "group"
+                ? await setGroupEditorsAction(editorsFor.group.id, e)
+                : await setColumnEditorsAction(boardId, editorsFor.def.key, e);
+            if (res.ok) toast.success(res.message ?? "Guardado.");
+            return res;
           }}
         />
       )}

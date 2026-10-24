@@ -43,12 +43,14 @@ const actionConfigSchema = z
     status_id: uuid,
     group_id: uuid,
     priority,
-    mode: z.enum(["user", "creator", "clear", "offset", "value"]),
+    mode: z.enum(["user", "creator", "clear", "offset", "value", "team"]),
     user_id: uuid,
     days: int(-365, 365),
     column_id: uuid,
     value: z.union([z.string().max(500), z.number(), z.boolean(), z.array(z.string().max(40)).max(100)]),
-    to: z.enum(["assignee", "creator", "user", "admins"]),
+    to: z.enum(["assignee", "creator", "user", "admins", "team"]),
+    team_id: uuid,
+    team_name: z.string().max(60),
     message: z.string().trim().max(500, { message: "El aviso puede tener hasta 500 caracteres." }),
     text: z.string().trim().max(2000, { message: "El comentario puede tener hasta 2000 caracteres." }),
     title: z.string().trim().max(200, { message: "El título puede tener hasta 200 caracteres." }),
@@ -102,6 +104,15 @@ async function memberIdsOf(ctx: Ctx, boardId: string) {
   if (!board) return new Set<string>();
   const { data: members } = await ctx.supabase.from("workspace_members").select("user_id").eq("workspace_id", board.workspace_id);
   return new Set((members ?? []).map((m) => m.user_id));
+}
+
+/** Equipo de la empresa del tablero (o null). */
+async function teamOf(ctx: Ctx, boardId: string, teamId: string | undefined) {
+  if (!teamId) return null;
+  const { data: board } = await ctx.supabase.from("boards").select("workspace_id").eq("id", boardId).maybeSingle();
+  if (!board) return null;
+  const { data } = await ctx.supabase.from("workspace_teams").select("id, name").eq("id", teamId).eq("workspace_id", board.workspace_id).maybeSingle();
+  return data;
 }
 
 async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
@@ -193,6 +204,12 @@ async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
       d.action_config = pick(ac, ["priority"]);
       break;
     case "set_assignee":
+      if (ac.mode === "team") {
+        const team = await teamOf(ctx, boardId, ac.team_id);
+        if (!team) return { error: "Elegí el equipo." } as const;
+        d.action_config = { mode: "team", team_id: team.id, team_name: team.name };
+        break;
+      }
       if (ac.mode !== "clear" && ac.mode !== "creator" && !ac.user_id) return { error: "Elegí a quién asignar." } as const;
       d.action_config = ac.mode === "clear" || ac.mode === "creator" ? { mode: ac.mode } : { mode: "user", user_id: ac.user_id };
       break;
@@ -245,6 +262,12 @@ async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
     case "notify":
       if (!ac.to) return { error: "Elegí a quién avisar." } as const;
       if (ac.to === "user" && !ac.user_id) return { error: "Elegí la persona a avisar." } as const;
+      if (ac.to === "team") {
+        const team = await teamOf(ctx, boardId, ac.team_id);
+        if (!team) return { error: "Elegí el equipo a avisar." } as const;
+        d.action_config = { to: "team", team_id: team.id, team_name: team.name, ...pick(ac, ["message"]) };
+        break;
+      }
       d.action_config = { to: ac.to, ...pick(ac, ["message"]), ...(ac.to === "user" ? { user_id: ac.user_id } : {}) };
       break;
     case "create_item":

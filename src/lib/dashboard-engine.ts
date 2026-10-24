@@ -33,6 +33,9 @@ export type DsTask = {
   title: string;
   priority: string;
   assignee_id: string | null;
+  /** Todos los responsables (personas) y equipos. */
+  assignee_ids?: string[];
+  team_ids?: string[];
   due_date: string | null;
   /** Fechas en hora de Argentina (AAAA-MM-DD). */
   created_on: string;
@@ -41,7 +44,11 @@ export type DsTask = {
   values: Record<string, CellValue>;
 };
 export type DsMember = { user_id: string; full_name: string | null; email: string | null };
-export type Dataset = { boards: DsBoard[]; tasks: DsTask[]; members: DsMember[]; today: string };
+export type DsTeam = { id: string; name: string };
+export type Dataset = { boards: DsBoard[]; tasks: DsTask[]; members: DsMember[]; teams?: DsTeam[]; today: string };
+
+/** Personas y equipos responsables de un elemento. */
+const peopleOf = (t: DsTask) => (t.assignee_ids?.length ? t.assignee_ids : t.assignee_id ? [t.assignee_id] : []);
 
 export type GlobalFilters = { boards: string[]; assignee: string; state: StateFilter };
 export const NO_GLOBAL_FILTERS: GlobalFilters = { boards: [], assignee: "", state: "all" };
@@ -62,7 +69,7 @@ const NUMBER_KINDS: ColumnKind[] = ["number", "rating", "checklist"];
 
 /** Todos los campos disponibles en los tableros del dataset (las columnas se unen por nombre y tipo). */
 export function fieldCatalog(ds: Dataset): FieldInfo[] {
-  const out: FieldInfo[] = BASE_FIELDS.map((k) => ({ key: k, label: FIELD_LABELS[k], type: DATE_BASE_FIELDS.includes(k) ? "date" : "category" }));
+  const out: FieldInfo[] = BASE_FIELDS.map((k) => ({ key: k, label: FIELD_LABELS[k], type: DATE_BASE_FIELDS.includes(k) ? "date" : "category", ...(k === "assignee" ? { multi: true } : {}) }));
   const seen = new Map<string, FieldInfo>();
   for (const b of ds.boards) {
     for (const c of b.columns) {
@@ -253,8 +260,11 @@ export function catsOf(ds: Dataset, t: DsTask, field: string, period?: Period): 
       const g = idx.group.get(t.group_id);
       return [{ key: g ? norm(g.name) : NONE, label: g?.name ?? "Sin carpeta", order: g?.position }];
     }
-    case "assignee":
-      return t.assignee_id ? [{ key: t.assignee_id, label: idx.member.get(t.assignee_id) ?? "Ex miembro" }] : [{ key: NONE, label: "Sin responsable", order: 9999 }];
+    case "assignee": {
+      const people = peopleOf(t).map((id) => ({ key: id, label: idx.member.get(id) ?? "Ex miembro" }));
+      const teams = (t.team_ids ?? []).map((id) => ({ key: id, label: `Equipo ${ds.teams?.find((x) => x.id === id)?.name ?? ""}`.trim() }));
+      return people.length + teams.length ? [...teams, ...people] : [{ key: NONE, label: "Sin responsable", order: 9999 }];
+    }
     case "priority": {
       const p = PRIORITIES.find((x) => x.value === t.priority);
       return [{ key: t.priority, label: p?.label ?? t.priority, color: p?.color ?? null, order: PRIORITY_ORDER.get(t.priority) }];
@@ -311,7 +321,10 @@ export function catsOf(ds: Dataset, t: DsTask, field: string, period?: Period): 
 export function optionsOf(ds: Dataset, field: string): Cat[] {
   const out = new Map<string, Cat>();
   if (field === "board") ds.boards.forEach((b, i) => out.set(b.id, { key: b.id, label: b.name, order: i }));
-  if (field === "assignee") for (const m of ds.members) out.set(m.user_id, { key: m.user_id, label: m.full_name?.trim() || m.email || "Sin nombre" });
+  if (field === "assignee") {
+    for (const t of ds.teams ?? []) out.set(t.id, { key: t.id, label: `Equipo ${t.name}` });
+    for (const m of ds.members) out.set(m.user_id, { key: m.user_id, label: m.full_name?.trim() || m.email || "Sin nombre" });
+  }
   if (field === "priority") for (const p of PRIORITIES) out.set(p.value, { key: p.value, label: p.label, color: p.color, order: PRIORITY_ORDER.get(p.value) });
   if (field === "status") for (const b of ds.boards) for (const s of b.statuses) if (!out.has(norm(s.label))) out.set(norm(s.label), { key: norm(s.label), label: s.label, color: s.color as ColorName, order: s.position });
   if (field.startsWith("col:") && /\|(list|tags)$/.test(field))
@@ -390,7 +403,10 @@ export function filterTasks(ds: Dataset, w: Pick<Widget, "filters">, g: GlobalFi
     if (!f.subitems && t.parent_id) return false;
     if (f.boards.length && !f.boards.includes(t.board_id)) return false;
     if (g.boards.length && !g.boards.includes(t.board_id)) return false;
-    if (g.assignee && (g.assignee === NONE ? t.assignee_id : t.assignee_id !== g.assignee)) return false;
+    if (g.assignee) {
+      const all = [...peopleOf(t), ...(t.team_ids ?? [])];
+      if (g.assignee === NONE ? all.length > 0 : !all.includes(g.assignee)) return false;
+    }
     if (!matchState(ds, t, f.state) || !matchState(ds, t, g.state)) return false;
     return f.conditions.every((c) => matchCondition(ds, t, c));
   });

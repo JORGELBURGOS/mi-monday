@@ -25,7 +25,7 @@ export async function getDashboardDataset(workspaceId: string): Promise<Dataset>
     supabase.from("board_columns").select("*").in("board_id", ids).order("position"),
     supabase
       .from("tasks")
-      .select("id, board_id, group_id, status_id, parent_id, title, priority, assignee_id, due_date, created_at, updated_at, custom_values")
+      .select("id, board_id, group_id, status_id, parent_id, title, priority, assignee_id, assignee_ids, team_ids, due_date, created_at, updated_at, custom_values")
       .in("board_id", ids)
       .order("created_at")
       .limit(20000),
@@ -40,6 +40,7 @@ export async function getDashboardDataset(workspaceId: string): Promise<Dataset>
       .limit(20000),
     getWorkspaceMembers(workspaceId),
   ]);
+  const { data: teams } = await supabase.from("workspace_teams").select("id, name").eq("workspace_id", workspaceId).order("name");
 
   const doneAt = new Map<string, string>();
   for (const e of done.data ?? []) if (!doneAt.has(e.task_id)) doneAt.set(e.task_id, e.created_at);
@@ -48,6 +49,7 @@ export async function getDashboardDataset(workspaceId: string): Promise<Dataset>
   return {
     today,
     members: members.filter((m) => !m.is_platform_admin).map((m) => ({ user_id: m.user_id, full_name: m.full_name, email: m.email })),
+    teams: teams ?? [],
     boards: (boards ?? []).map((b) => ({
       id: b.id,
       name: b.name,
@@ -65,6 +67,8 @@ export async function getDashboardDataset(workspaceId: string): Promise<Dataset>
         title: t.title,
         priority: t.priority,
         assignee_id: t.assignee_id,
+        assignee_ids: t.assignee_ids,
+        team_ids: t.team_ids,
         due_date: t.due_date,
         created_on: arDate(t.created_at)!,
         updated_on: arDate(t.updated_at)!,

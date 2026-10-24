@@ -29,6 +29,8 @@ import { MirrorCell } from "./rich-cells";
 import { TaskTrace } from "./task-trace";
 import { TaskHistory } from "./task-history";
 import { ChecklistEditor } from "./checklist-editor";
+import { AssigneesPicker, type PeopleValue } from "@/components/ui/people-picker";
+import { canComment, canEditColumn } from "@/lib/teams";
 import { useCellContext } from "./cell-context";
 import type { Group, Member, Status, Task } from "./types";
 
@@ -79,21 +81,23 @@ export function TaskDialog({
   const uid = useId();
   // Solo se guardan los campos que la persona tocó: si mientras tanto una regla
   // cambió el estado (por ejemplo, al tildar un paso del checklist), no se pisa.
-  type Edits = Partial<{ title: string; description: string; status_id: string; priority: Priority; assignee_id: string; due_date: string; group_id: string }>;
+  type Edits = Partial<{ title: string; description: string; status_id: string; priority: Priority; assignees: PeopleValue; due_date: string; group_id: string }>;
   const [edits, setEdits] = useState<Edits>({});
   const edit = <K extends keyof Edits>(key: K) => (v: NonNullable<Edits[K]>) => setEdits((e) => ({ ...e, [key]: v }));
   const title = edits.title ?? task.title;
   const description = edits.description ?? task.description ?? "";
   const statusId = edits.status_id ?? task.status_id ?? "";
   const priority = edits.priority ?? task.priority;
-  const assigneeId = edits.assignee_id ?? task.assignee_id ?? "";
+  const taskAssignees: PeopleValue = { users: task.assignee_ids ?? (task.assignee_id ? [task.assignee_id] : []), teams: task.team_ids ?? [] };
+  const assignees = edits.assignees ?? taskAssignees;
+  const assigneesChanged = JSON.stringify(assignees) !== JSON.stringify(taskAssignees);
   const dueDate = edits.due_date ?? task.due_date ?? "";
   const groupId = edits.group_id ?? task.group_id;
   const setTitle = edit("title");
   const setDescription = edit("description");
   const setStatusId = edit("status_id");
   const setPriority = edit("priority");
-  const setAssigneeId = edit("assignee_id");
+  const setAssignees = edit("assignees");
   const setDueDate = edit("due_date");
   const setGroupId = edit("group_id");
   const initialValues = readValues(task.custom_values);
@@ -101,6 +105,7 @@ export function TaskDialog({
   const [tab, setTab] = useState<string>("comments");
   const [addingChecklist, setAddingChecklist] = useState(false);
   const ctx = useCellContext();
+  const colLocked = (key: string) => Boolean(ctx && !canEditColumn(ctx.access, ctx.columnEditors.get(key)));
   const checklistCols = columns.filter((c) => c.kind === "checklist");
   const historyLookup = useMemo(() => ({ columns, members }), [columns, members]);
   const [commentCount, setCommentCount] = useState<number | null>(null);
@@ -113,7 +118,7 @@ export function TaskDialog({
     (description.trim() || null) !== (task.description?.trim() || null) ||
     (statusId || null) !== task.status_id ||
     priority !== task.priority ||
-    (assigneeId || null) !== task.assignee_id ||
+    assigneesChanged ||
     (dueDate || null) !== task.due_date ||
     groupId !== task.group_id ||
     changedValues().length > 0;
@@ -139,7 +144,10 @@ export function TaskDialog({
       if (edits.description !== undefined && (description.trim() || null) !== (task.description?.trim() || null)) patch.description = description.trim() ? description : null;
       if (edits.status_id !== undefined && (statusId || null) !== task.status_id) patch.status_id = statusId || null;
       if (edits.priority !== undefined && priority !== task.priority) patch.priority = priority;
-      if (edits.assignee_id !== undefined && (assigneeId || null) !== task.assignee_id) patch.assignee_id = assigneeId || null;
+      if (edits.assignees !== undefined && assigneesChanged) {
+        patch.assignee_ids = assignees.users;
+        patch.team_ids = assignees.teams;
+      }
       if (edits.due_date !== undefined && (dueDate || null) !== task.due_date) patch.due_date = dueDate || null;
       if (Object.keys(patch).length > 0) {
         const res = await updateTaskAction(task.id, patch);
@@ -188,7 +196,7 @@ export function TaskDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={500}
-              disabled={readOnly}
+              disabled={readOnly || colLocked("title")}
               aria-invalid={titleError ? true : undefined}
               aria-describedby={titleError ? `${uid}-title-error` : undefined}
             />
@@ -262,7 +270,7 @@ export function TaskDialog({
             </div>
             <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${tab}`}>
               {tab === "comments" ? (
-                <Comments taskId={task.id} disabled={task.id.startsWith("tmp-")} onCount={setCommentCount} />
+                <Comments taskId={task.id} disabled={task.id.startsWith("tmp-") || Boolean(ctx && !canComment(ctx.access))} onCount={setCommentCount} />
               ) : tab.startsWith("ck:") ? (
                 (() => {
                   const col = checklistCols.find((c) => `ck:${c.id}` === tab);
@@ -275,7 +283,8 @@ export function TaskDialog({
                       members={members}
                       templates={ctx?.templates ?? []}
                       workspaceId={ctx?.workspaceId}
-                      disabled={readOnly || task.id.startsWith("tmp-")}
+                      disabled={readOnly || task.id.startsWith("tmp-") || colLocked(`c:${col.id}`)}
+                      lockedSections={ctx?.lockedSections}
                       onChange={(next) => {
                         setValues((prev) => ({ ...prev, [col.id]: next.length ? next : null }));
                         // El checklist se guarda en el momento.
@@ -305,7 +314,7 @@ export function TaskDialog({
               value={statusId || null}
               onChange={(v) => setStatusId(typeof v === "string" ? v : "")}
               label={builtinLabel(env.settings, "status")}
-              disabled={readOnly}
+              disabled={readOnly || colLocked("status")}
               editing={labelEditors.status}
               emptyText="Sin estado"
             />
@@ -317,23 +326,24 @@ export function TaskDialog({
               value={priority}
               onChange={(v) => typeof v === "string" && setPriority(v as Priority)}
               label={builtinLabel(env.settings, "priority")}
-              disabled={readOnly}
+              disabled={readOnly || colLocked("priority")}
               editing={labelEditors.priority}
               allowEmpty={false}
             />
           </Field>
           <Field id={`${uid}-assignee`} label={builtinLabel(env.settings, "assignee")}>
-            <Select id={`${uid}-assignee`} value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} disabled={readOnly}>
-              <option value="">Sin responsable</option>
-              {members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {displayName(m)}
-                </option>
-              ))}
-            </Select>
+            <AssigneesPicker
+              value={assignees}
+              people={members}
+              teams={ctx?.teams ?? []}
+              onChange={setAssignees}
+              label={builtinLabel(env.settings, "assignee")}
+              disabled={readOnly || colLocked("assignee")}
+              className="h-10 border-line bg-surface"
+            />
           </Field>
           <Field id={`${uid}-due`} label={builtinLabel(env.settings, "due")}>
-            <Input id={`${uid}-due`} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly} />
+            <Input id={`${uid}-due`} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={readOnly || colLocked("due")} />
           </Field>
           <Field id={`${uid}-group`} label="Carpeta" hint={parent ? "La de su elemento" : undefined}>
             <Select id={`${uid}-group`} value={groupId} onChange={(e) => setGroupId(e.target.value)} disabled={readOnly || Boolean(parent)}>
@@ -374,7 +384,7 @@ export function TaskDialog({
                   column={c}
                   value={values[c.id] ?? undefined}
                   members={members}
-                  disabled={readOnly}
+                  disabled={readOnly || colLocked(`c:${c.id}`)}
                   label={c.name}
                   labelEditing={labelEditors.column(c)}
                   taskId={task.id}

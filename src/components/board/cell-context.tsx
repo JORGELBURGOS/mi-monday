@@ -6,6 +6,7 @@ import type { BoardColumn } from "@/lib/columns";
 import type { Priority } from "@/lib/constants";
 import type { ChecklistTemplate } from "@/lib/columns";
 import type { Member, Status, Task } from "./types";
+import type { BoardAccess, Editors, Team } from "@/lib/teams";
 
 /** Elemento de otro tablero vinculado con "Conectar tableros". */
 export type LinkedItem = {
@@ -36,6 +37,14 @@ export type CellCtx = {
   /** Plantillas de checklist de la empresa. */
   templates: ChecklistTemplate[];
   members: Member[];
+  teams: Team[];
+  /** Permisos de quien está conectado. */
+  access: BoardAccess;
+  /** Quién edita cada carpeta (por id) y cada columna (por clave). */
+  groupEditors: Map<string, Editors>;
+  columnEditors: Map<string, Editors>;
+  /** Secciones de checklist (nombre de carpeta, en minúsculas) que no puede tocar. */
+  lockedSections: Set<string>;
 };
 
 export const CellContext = createContext<CellCtx | null>(null);

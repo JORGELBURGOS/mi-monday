@@ -5,6 +5,8 @@ import type { Tables } from "@/lib/database.types";
 import type { WorkspaceRole } from "@/lib/constants";
 import { displayName } from "@/lib/format";
 import { NON_RULE_KINDS, parseColumn, type BoardColumn, type ChecklistTemplate } from "@/lib/columns";
+import { isBoardRole, type BoardAccess, type Team } from "@/lib/teams";
+export type { Team, BoardAccess } from "@/lib/teams";
 export type { ChecklistTemplate } from "@/lib/columns";
 
 /*
@@ -141,7 +143,20 @@ export type BoardData = {
   linkedItems: Pick<Task, "id" | "title" | "board_id" | "status_id" | "due_date" | "priority" | "assignee_id" | "custom_values">[];
   /** Plantillas de checklist de la empresa. */
   checklistTemplates: ChecklistTemplate[];
+  /** Equipos de la empresa. */
+  teams: Team[];
+  /** Lo que la persona conectada puede hacer en el tablero. */
+  access: BoardAccess;
 };
+
+/** Equipos de la empresa con sus integrantes. */
+export async function getWorkspaceTeams(workspaceId: string): Promise<Team[]> {
+  const supabase = await createClient();
+  const { data: teams } = await supabase.from("workspace_teams").select("id, name, color, description").eq("workspace_id", workspaceId).order("name");
+  if (!teams?.length) return [];
+  const { data: members } = await supabase.from("team_members").select("team_id, user_id").in("team_id", teams.map((t) => t.id));
+  return teams.map((t) => ({ ...t, member_ids: (members ?? []).filter((m) => m.team_id === t.id).map((m) => m.user_id) }));
+}
 
 
 export async function getChecklistTemplates(workspaceId: string): Promise<ChecklistTemplate[]> {
@@ -173,7 +188,13 @@ export async function getBoardData(boardId: string, userId: string): Promise<Boa
   if (!workspace) return null;
   if (statuses.error || groups.error || tasks.error || columns.error) throw new Error("No se pudo cargar el tablero.");
 
-  const canManage = board.created_by === userId || workspace.role === "owner" || workspace.role === "admin";
+  const [{ data: role }, teams] = await Promise.all([supabase.rpc("my_board_role", { p_board: boardId }), getWorkspaceTeams(board.workspace_id)]);
+  const access: BoardAccess = {
+    userId,
+    role: isBoardRole(role) ? role : null,
+    teamIds: teams.filter((t) => t.member_ids.includes(userId)).map((t) => t.id),
+  };
+  const canManage = access.role === "admin";
   const parsedColumns = (columns.data ?? []).map(parseColumn);
 
   // Conectar tableros: se cargan los tableros vinculados que la persona puede ver (RLS).
@@ -206,6 +227,8 @@ export async function getBoardData(boardId: string, userId: string): Promise<Boa
     })),
     linkedItems: (lItems.data ?? []) as BoardData["linkedItems"],
     checklistTemplates: templates,
+    teams,
+    access,
   };
 }
 
@@ -303,4 +326,17 @@ export async function getBoardGrants(boardId: string): Promise<string[]> {
   const supabase = await createClient();
   const { data } = await supabase.from("board_members").select("user_id").eq("board_id", boardId);
   return (data ?? []).map((g) => g.user_id);
+}
+
+/** Permisos de un tablero: por persona y por equipo, con su rol. */
+export async function getBoardPermissions(boardId: string): Promise<{ users: Record<string, string>; teams: Record<string, string> }> {
+  const supabase = await createClient();
+  const [{ data: users }, { data: teams }] = await Promise.all([
+    supabase.from("board_members").select("user_id, role").eq("board_id", boardId),
+    supabase.from("board_teams").select("team_id, role").eq("board_id", boardId),
+  ]);
+  return {
+    users: Object.fromEntries((users ?? []).map((u) => [u.user_id, u.role])),
+    teams: Object.fromEntries((teams ?? []).map((t) => [t.team_id, t.role])),
+  };
 }

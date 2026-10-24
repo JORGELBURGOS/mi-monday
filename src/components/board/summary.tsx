@@ -57,7 +57,7 @@ function Summary({ def, tasks, env, statuses, priorities, members }: { def: Colu
   }
   if (def.builtin === "due") return <DateRange dates={tasks.map((t) => t.due_date).filter((d): d is string => Boolean(d))} />;
   if (def.builtin === "assignee") {
-    const people = new Set(tasks.map((t) => t.assignee_id).filter(Boolean));
+    const people = new Set(tasks.flatMap((t) => t.assignee_ids ?? (t.assignee_id ? [t.assignee_id] : [])));
     return <Muted>{people.size ? `${people.size} ${people.size === 1 ? "persona" : "personas"}` : ""}</Muted>;
   }
   const c = def.column!;

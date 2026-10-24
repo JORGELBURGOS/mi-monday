@@ -75,6 +75,8 @@ export const taskPatchSchema = z
     status_id: uuid.nullable(),
     priority: z.enum(["low", "medium", "high", "urgent"], { message: "Prioridad inválida." }),
     assignee_id: uuid.nullable(),
+    assignee_ids: z.array(uuid).max(50, { message: "Hasta 50 responsables." }),
+    team_ids: z.array(uuid).max(20, { message: "Hasta 20 equipos." }),
     due_date: dateString.nullable(),
   })
   .partial()

@@ -159,6 +159,11 @@ export function DashboardView({ dashboard, ds, canEdit }: { dashboard: Dashboard
         </Select>
         <Select aria-label="Responsable" className="!h-8 w-auto max-w-56 text-xs" value={filters.assignee} onChange={(e) => setFilters((f) => ({ ...f, assignee: e.target.value }))}>
           <option value="">Todas las personas</option>
+          {(ds.teams ?? []).map((t) => (
+            <option key={t.id} value={t.id}>
+              Equipo {t.name}
+            </option>
+          ))}
           {ds.members.map((m) => (
             <option key={m.user_id} value={m.user_id}>
               {m.full_name?.trim() || m.email}

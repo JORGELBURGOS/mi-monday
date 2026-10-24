@@ -115,7 +115,8 @@ function resolverFor(task: Task, env: RowEnv, stack: string[]) {
     if (is("title", "Nombre", "Tarea", "Item", "Ítem")) return task.title;
     if (is("status")) return env.statuses.find((s) => s.id === task.status_id)?.label ?? "";
     if (is("priority")) return priorityLabel(env.settings, task.priority).label;
-    if (is("assignee", "Persona", "Personas")) return personName(env.members, task.assignee_id);
+    if (is("assignee", "Persona", "Personas"))
+      return (task.assignee_ids?.length ? task.assignee_ids : task.assignee_id ? [task.assignee_id] : []).map((id) => personName(env.members, id)).filter(Boolean).join(", ");
     if (is("due", "Fecha de vencimiento")) return task.due_date ?? "";
     if (["carpeta", "grupo", "group"].includes(name)) return env.groups.find((g) => g.id === task.group_id)?.name ?? "";
     if (["descripcion", "description"].includes(name)) return task.description ?? "";

@@ -21,6 +21,7 @@ import {
   IconSettings,
   IconTrash,
   IconLink,
+  IconLock,
   IconPaperclip,
   IconUser,
   IconUsers,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/icons";
 import {
   COLUMN_KIND_HELP,
+  COMPUTED_KINDS,
   COLUMN_KIND_LABELS,
   KIND_CHANGES,
   NUMBER_SUMMARIES,
@@ -252,6 +254,8 @@ export type HeaderHandlers = {
   onDuplicate: (def: ColumnDef, withValues: boolean) => void;
   onDelete: (def: ColumnDef) => void;
   onAddAfter: (def: ColumnDef, kind: ColumnKind) => void;
+  /** Elegir quién puede cambiar la columna. */
+  onEditors?: (def: ColumnDef) => void;
 };
 
 export function ColumnHeader({
@@ -276,6 +280,9 @@ export function ColumnHeader({
       ? ([
           { label: "Configurar columna", icon: <IconSettings size={16} />, onSelect: () => handlers.onSettings(def) },
           { label: "Renombrar", icon: <IconEdit size={16} />, onSelect: () => setRenaming(true) },
+          ...(handlers.onEditors && !(def.column && COMPUTED_KINDS.includes(def.column.kind))
+            ? [{ label: "Quién puede cambiarla…", icon: <IconLock size={16} />, onSelect: () => handlers.onEditors!(def) }]
+            : []),
         ] as MenuItem[])
       : []),
     { type: "label", label: "Ordenar" },

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getBoardData, getBoardGrants } from "@/lib/data";
+import { getBoardData, getBoardPermissions } from "@/lib/data";
 import { uuidSchema } from "@/lib/validation";
 import { Card, PageHeader } from "@/components/ui/misc";
 import { BoardForm } from "@/components/board-form";
@@ -18,7 +18,7 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
   const data = await getBoardData(boardId, user.id);
   if (!data) notFound();
   const { board, canManage, members } = data;
-  const granted = canManage ? await getBoardGrants(board.id) : [];
+  const permissions = canManage ? await getBoardPermissions(board.id) : { users: {}, teams: {} };
 
 
   return (
@@ -44,16 +44,20 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
             <BoardForm board={{ id: board.id, name: board.name, description: board.description, visibility: board.visibility }} />
           </Card>
           <Card>
-            <h2 className="font-bold">Acceso</h2>
+            <h2 className="font-bold">Acceso y permisos</h2>
             <p className="mb-4 mt-1 text-sm text-muted">
-              Quién puede ver y trabajar en este tablero. Los administradores de la empresa siempre tienen acceso.
+              Quién ve este tablero y qué puede hacer cada persona o equipo. Los administradores de la empresa y quien lo creó siempre lo administran.
+              Para restringir una carpeta o una columna, usá el menú de la carpeta o del encabezado de la columna en el tablero.
             </p>
             <BoardAccess
               boardId={board.id}
               visibility={board.visibility}
+              defaultRole={board.default_role}
               createdBy={board.created_by}
-              members={members.filter((m) => !m.deactivated_at || granted.includes(m.user_id))}
-              granted={granted}
+              members={members.filter((m) => !m.is_platform_admin && (!m.deactivated_at || m.user_id in permissions.users))}
+              teams={data.teams}
+              userRoles={permissions.users}
+              teamRoles={permissions.teams}
             />
           </Card>
           <Card>

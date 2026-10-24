@@ -42,7 +42,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ work
   const [{ data: statuses }, { data: tasks }, members, { data: ckCols }, dashboards] = await Promise.all([
     ids.length ? supabase.from("board_statuses").select("id, board_id, label, color, is_done, position").in("board_id", ids).order("position") : Promise.resolve({ data: [] }),
     ids.length
-      ? supabase.from("tasks").select("id, title, board_id, status_id, due_date, assignee_id, parent_id, custom_values").in("board_id", ids).is("parent_id", null).limit(10000)
+      ? supabase.from("tasks").select("id, title, board_id, status_id, due_date, assignee_id, assignee_ids, team_ids, parent_id, custom_values").in("board_id", ids).is("parent_id", null).limit(10000)
       : Promise.resolve({ data: [] }),
     getWorkspaceMembers(workspaceId),
     ids.length ? supabase.from("board_columns").select("id, board_id, name").in("board_id", ids).eq("kind", "checklist") : Promise.resolve({ data: [] as { id: string; board_id: string; name: string }[] }),
@@ -81,12 +81,12 @@ export default async function DashboardPage({ params }: { params: Promise<{ work
 
   const perPerson = members
     .map((m) => {
-      const mine = open.filter((t) => t.assignee_id === m.user_id);
+      const mine = open.filter((t) => (t.assignee_ids ?? []).includes(m.user_id));
       return { m, open: mine.length, overdue: mine.filter((t) => t.due_date && t.due_date < today).length };
     })
     .filter((p) => p.open > 0)
     .sort((a, b) => b.open - a.open);
-  const unassigned = open.filter((t) => !t.assignee_id).length;
+  const unassigned = open.filter((t) => !(t.assignee_ids ?? []).length && !(t.team_ids ?? []).length).length;
   const maxLoad = Math.max(1, ...perPerson.map((p) => p.open), unassigned);
 
   // Pasos de checklist asignados a mí y sin hacer (en elementos sin terminar).

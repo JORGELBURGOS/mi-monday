@@ -393,6 +393,16 @@ function WorkspaceNode({
               Usuarios
             </NavLink>
           </li>
+          <li>
+            <NavLink
+              href={`/e/${workspace.id}/equipos`}
+              active={pathname === `/e/${workspace.id}/equipos`}
+              icon={<IconUsers size={15} />}
+              className="text-muted"
+            >
+              Equipos
+            </NavLink>
+          </li>
           {(workspace.role === "owner" || workspace.role === "admin") && (
             <li>
               <NavLink

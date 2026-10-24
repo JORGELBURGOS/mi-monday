@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { sectionOfSteps } from "@/lib/teams";
 import { cn } from "@/lib/cn";
 import { displayName } from "@/lib/format";
 import { Avatar } from "@/components/ui/misc";
 import { Menu, type MenuItem } from "@/components/ui/menu";
 import { PopoverButton } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/toast";
-import { IconCalendar, IconCheck, IconChevronDown, IconChevronRight, IconComment, IconDots, IconGrip, IconPlus, IconUser, IconX } from "@/components/ui/icons";
+import { IconCalendar, IconCheck, IconChevronDown, IconChevronRight, IconComment, IconDots, IconGrip, IconLock, IconPlus, IconUser, IconX } from "@/components/ui/icons";
 import {
   CHECK_STATUSES,
   CHECK_STATUS_LABELS,
@@ -94,6 +95,7 @@ export function ChecklistEditor({
   workspaceId,
   disabled,
   template,
+  lockedSections,
   onChange,
 }: {
   items: CheckItem[];
@@ -103,6 +105,8 @@ export function ChecklistEditor({
   disabled?: boolean;
   /** Editando una plantilla: sin tildar, responsables, vencimientos ni estados. */
   template?: boolean;
+  /** Secciones (nombre en minúsculas) que la persona no puede tocar. */
+  lockedSections?: Set<string>;
   onChange: (next: CheckItem[]) => void;
 }) {
   const toast = useToast();
@@ -170,7 +174,9 @@ export function ChecklistEditor({
   });
 
   const allDone = total > 0 && done === total;
-  const toolsMenu: MenuItem[] = (template ? [] : [{ label: allDone ? "Destildar todos los pasos" : "Tildar todos los pasos", onSelect: () => save(list.map((x) => (x.header || x.status === "na" ? x : cleanCheckItem({ ...x, done: !allDone, status: !allDone ? undefined : x.status })))) , disabled: disabled || total === 0 }] as MenuItem[]).concat([
+  const sectionName = sectionOfSteps(list);
+  const anyLocked = Boolean(lockedSections?.size) && list.some((x) => lockedSections!.has(sectionName.get(x.id) ?? "\u0000"));
+  const toolsMenu: MenuItem[] = (template ? [] : [{ label: allDone ? "Destildar todos los pasos" : "Tildar todos los pasos", onSelect: () => save(list.map((x) => (x.header || x.status === "na" ? x : cleanCheckItem({ ...x, done: !allDone, status: !allDone ? undefined : x.status })))) , disabled: disabled || anyLocked || total === 0 }] as MenuItem[]).concat([
     { label: hideDone ? "Mostrar pasos hechos" : "Ocultar pasos hechos", onSelect: () => setHideDone((v) => !v) },
     { label: "Agregar sección", onSelect: () => save([...list, cleanCheckItem({ text: "Nueva sección", header: true })]), disabled },
     { label: "Pegar lista de pasos…", onSelect: () => setBulk(""), disabled },
@@ -195,7 +201,7 @@ export function ChecklistEditor({
       },
       disabled: list.length === 0,
     },
-    { label: "Vaciar checklist", onSelect: () => save([]), danger: true, disabled: disabled || list.length === 0 },
+    { label: "Vaciar checklist", onSelect: () => save([]), danger: true, disabled: disabled || anyLocked || list.length === 0 },
   ]);
 
   return (
@@ -281,6 +287,7 @@ export function ChecklistEditor({
             const who = i.assignee ? members.find((m) => m.user_id === i.assignee) : undefined;
             const overdue = Boolean(i.due && !i.done && i.due < today);
             const idx = list.findIndex((x) => x.id === i.id);
+            const itemDisabled = disabled || Boolean(lockedSections?.has(sectionName.get(i.id) ?? "\u0000"));
             const itemMenu: MenuItem[] = [
               ...(!i.header && !template
                 ? ([
@@ -303,7 +310,7 @@ export function ChecklistEditor({
             return (
               <li
                 key={i.id}
-                draggable={!disabled}
+                draggable={!itemDisabled}
                 onDragStart={(e) => {
                   dragId.current = i.id;
                   e.dataTransfer.effectAllowed = "move";
@@ -332,7 +339,7 @@ export function ChecklistEditor({
                 className={cn("group/i rounded-lg", dragOver === i.id && "ring-2 ring-accent", i.header ? "mt-2 bg-surface-2" : "hover:bg-surface-2")}
               >
                 <div className="flex items-center gap-1.5 px-1 py-1">
-                  {!disabled && (
+                  {!itemDisabled && (
                     <span className="cursor-grab text-subtle opacity-0 group-hover/i:opacity-100" aria-hidden>
                       <IconGrip size={14} />
                     </span>
@@ -353,7 +360,7 @@ export function ChecklistEditor({
                     <input
                       type="checkbox"
                       checked={i.done}
-                      disabled={disabled || i.status === "na"}
+                      disabled={itemDisabled || i.status === "na"}
                       aria-label={`Hecho: ${i.text}`}
                       onChange={(e) => patch(i.id, { done: e.target.checked, status: e.target.checked ? undefined : i.status })}
                       className="h-4 w-4 shrink-0 accent-[var(--accent)]"
@@ -361,9 +368,14 @@ export function ChecklistEditor({
                   )}
                   <ItemText
                     item={i}
-                    disabled={disabled}
+                    disabled={itemDisabled}
                     onCommit={(t) => (t ? patch(i.id, { text: t }) : remove(i.id))}
                   />
+                  {i.header && itemDisabled && !disabled && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted" title="Estos pasos los marca solo el equipo de esa carpeta">
+                      <IconLock size={11} /> Solo su equipo
+                    </span>
+                  )}
                   {sec && sec.total > 0 && (
                     <span className={cn("shrink-0 text-xs font-semibold tabular-nums", sec.done === sec.total ? "text-success" : "text-muted")}>
                       {sec.done}/{sec.total}
@@ -378,12 +390,12 @@ export function ChecklistEditor({
                     </button>
                   )}
                   {!i.header && !template && (
-                    <DuePicker value={i.due} overdue={overdue} disabled={disabled} label={i.text} onChange={(due) => patch(i.id, { due })} />
+                    <DuePicker value={i.due} overdue={overdue} disabled={itemDisabled} label={i.text} onChange={(due) => patch(i.id, { due })} />
                   )}
                   {!i.header && !template && (
-                    <AssigneePicker who={who} members={members} disabled={disabled} label={i.text} onChange={(assignee) => patch(i.id, { assignee })} />
+                    <AssigneePicker who={who} members={members} disabled={itemDisabled} label={i.text} onChange={(assignee) => patch(i.id, { assignee })} />
                   )}
-                  {!disabled && (
+                  {!itemDisabled && (
                     <Menu
                       label={`Opciones de ${i.text}`}
                       trigger={<IconDots size={14} />}
@@ -396,7 +408,7 @@ export function ChecklistEditor({
                   <div className="pb-1.5 pl-9 pr-2">
                     <textarea
                       defaultValue={i.note ?? ""}
-                      disabled={disabled}
+                      disabled={itemDisabled}
                       rows={2}
                       maxLength={1000}
                       aria-label={`Nota de ${i.text}`}

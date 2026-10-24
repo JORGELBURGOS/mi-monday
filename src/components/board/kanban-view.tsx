@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { asColor } from "@/lib/constants";
-import { displayName } from "@/lib/format";
-import { Avatar } from "@/components/ui/misc";
+import { PeopleSummary } from "@/components/ui/people-picker";
+import { useCellContext } from "./cell-context";
 import { Menu, type MenuItem } from "@/components/ui/menu";
 import { IconDots, IconMove } from "@/components/ui/icons";
 import type { PriorityLabel } from "@/lib/board-settings";
@@ -33,6 +33,7 @@ export function KanbanView({
   onOpenTask: (t: Task) => void;
   onSetStatus: (t: Task, statusId: string | null) => void;
 }) {
+  const ctx = useCellContext();
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const lanes = [...statuses.map((s) => ({ id: s.id as string | null, label: s.label, color: asColor(s.color) })), { id: null, label: "Sin estado", color: "gray" as const }];
@@ -69,7 +70,6 @@ export function KanbanView({
               </header>
               <ul className="flex-1 space-y-2 p-2">
                 {laneTasks.map((t) => {
-                  const assignee = members.find((m) => m.user_id === t.assignee_id);
                   const p = priorities.find((x) => x.value === t.priority)!;
                   const done = Boolean(t.status_id && doneIds.has(t.status_id));
                   const menu: MenuItem[] = [
@@ -102,9 +102,9 @@ export function KanbanView({
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <span className={cn(`solid-${p.color}`, "rounded-full px-2 py-0.5 font-semibold")}>{p.label}</span>
                         <DueBadge value={t.due_date} today={today} done={done} />
-                        {assignee && (
-                          <span className="ml-auto flex items-center gap-1 text-muted" title={displayName(assignee)}>
-                            <Avatar name={displayName(assignee)} size="sm" />
+                        {((t.assignee_ids?.length ?? 0) > 0 || (t.team_ids?.length ?? 0) > 0) && (
+                          <span className="ml-auto flex min-w-0 items-center text-muted">
+                            <PeopleSummary value={{ users: t.assignee_ids ?? [], teams: t.team_ids ?? [] }} people={members} teams={ctx?.teams ?? []} />
                           </span>
                         )}
                       </div>

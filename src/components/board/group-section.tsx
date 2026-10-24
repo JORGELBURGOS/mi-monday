@@ -13,11 +13,15 @@ import {
   IconDots,
   IconEdit,
   IconGrip,
+  IconLock,
   IconMove,
   IconPlus,
   IconTrash,
 } from "@/components/ui/icons";
-import { AssigneeSelect, DueBadge, DueDateInput } from "./task-fields";
+import { DueBadge, DueDateInput } from "./task-fields";
+import { AssigneesPicker, PeopleSummary } from "@/components/ui/people-picker";
+import { useCellContext } from "./cell-context";
+import { canEditColumn, canEditTask, isRestricted, readEditors } from "@/lib/teams";
 import { ComputedCell, CustomValueInput } from "./custom-cell";
 import { MirrorCell } from "./rich-cells";
 import { LabelCell, type LabelEditing } from "./label-picker";
@@ -43,6 +47,8 @@ export type GroupHandlers = {
   onRecolorGroup: (g: Group, color: ColorName) => void;
   onMoveGroup: (g: Group, dir: "up" | "down") => void;
   onDeleteGroup: (g: Group) => void;
+  /** Elegir quién edita la carpeta (solo administradores del tablero). */
+  onGroupEditors?: (g: Group) => void;
   onAddColumn: (kind: ColumnKind) => void;
 };
 
@@ -110,9 +116,13 @@ export function GroupSection(props: Props) {
       icon: <span className={cn(`solid-${c}`, "block h-3 w-3 rounded-full")} />,
       onSelect: () => handlers.onRecolorGroup(group, c),
     })),
+    ...(props.canManage && handlers.onGroupEditors
+      ? ([{ type: "separator" }, { label: "Quién edita esta carpeta…", icon: <IconLock size={16} />, onSelect: () => handlers.onGroupEditors!(group) }] as MenuItem[])
+      : []),
     { type: "separator" },
     { label: "Eliminar carpeta", icon: <IconTrash size={16} />, danger: true, onSelect: () => handlers.onDeleteGroup(group), disabled: props.groups.length <= 1 },
   ];
+  const restricted = isRestricted(readEditors(group.editors));
 
   // Índice en la lista completa (ordenada por posición) para soltar antes de `beforeTask`.
   const indexInGroup = (beforeTask: Task | null) => {
@@ -172,11 +182,22 @@ export function GroupSection(props: Props) {
             {group.name}
           </h2>
         )}
+        {restricted && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted" title={readOnly ? "Solo la editan las personas o equipos asignados" : "Carpeta con edición restringida"}>
+            <IconLock size={12} /> {readOnly ? "Solo lectura" : "Restringida"}
+          </span>
+        )}
         <span className="shrink-0 text-xs text-muted">
           {filtered ? `${visibleTasks.length} de ${allTasks.length}` : allTasks.length} {allTasks.length === 1 ? "elemento" : "elementos"}
           {allTasks.length > 0 && <span className="hidden sm:inline"> · {doneCount} terminados</span>}
         </span>
-        {!readOnly && <Menu label={`Acciones de la carpeta ${group.name}`} trigger={<IconDots />} items={groupMenu} />}
+        {(!readOnly || (props.canManage && handlers.onGroupEditors)) && (
+          <Menu
+            label={`Acciones de la carpeta ${group.name}`}
+            trigger={<IconDots />}
+            items={readOnly ? groupMenu.filter((i) => "label" in i && i.label === "Quién edita esta carpeta…") : groupMenu}
+          />
+        )}
       </header>
 
       {!collapsed && (
@@ -346,7 +367,9 @@ function taskMenu(task: Task, props: Props): MenuItem[] {
   ];
 }
 
-function TitleInput({ task, onSave, disabled, className }: { task: Task; onSave: (title: string) => void; disabled: boolean; className?: string }) {
+function TitleInput({ task, onSave, disabled: rowDisabled, className }: { task: Task; onSave: (title: string) => void; disabled: boolean; className?: string }) {
+  const ctx = useCellContext();
+  const disabled = rowDisabled || Boolean(ctx && !canEditColumn(ctx.access, ctx.columnEditors.get("title")));
   return (
     <input
       key={task.title}
@@ -375,11 +398,30 @@ function TitleInput({ task, onSave, disabled, className }: { task: Task; onSave:
 }
 
 /** Celda de una columna (fija o propia) para un elemento. */
-export function Cell({ def, task, props, disabled, variant = "cell" }: { def: ColumnDef; task: Task; props: Pick<Props, "statuses" | "priorities" | "members" | "today" | "doneIds" | "handlers" | "labelEditors" | "env">; disabled: boolean; variant?: "cell" | "field" }) {
+/** ¿La persona conectada no puede editar este elemento? (rol "solo lo suyo" o carpeta restringida). */
+export function useRowLocked(task: Task): boolean {
+  const ctx = useCellContext();
+  if (!ctx) return false;
+  const parent = task.parent_id ? ctx.tasks.find((t) => t.id === task.parent_id) : null;
+  return !canEditTask(ctx.access, task, ctx.groupEditors.get(task.group_id), parent);
+}
+
+export function Cell({ def, task, props, disabled: rowDisabled, variant = "cell" }: { def: ColumnDef; task: Task; props: Pick<Props, "statuses" | "priorities" | "members" | "today" | "doneIds" | "handlers" | "labelEditors" | "env">; disabled: boolean; variant?: "cell" | "field" }) {
   const { statuses, members, handlers, labelEditors } = props;
+  const ctx = useCellContext();
+  const disabled = rowDisabled || Boolean(ctx && !canEditColumn(ctx.access, ctx.columnEditors.get(def.key)));
   const name = `${def.label} de ${task.title}`;
   if (def.builtin === "assignee")
-    return <AssigneeSelect value={task.assignee_id} members={members} disabled={disabled} label={name} onChange={(assignee_id) => handlers.onUpdateTask(task, { assignee_id })} />;
+    return (
+      <AssigneesPicker
+        value={{ users: task.assignee_ids ?? (task.assignee_id ? [task.assignee_id] : []), teams: task.team_ids ?? [] }}
+        people={members}
+        teams={ctx?.teams ?? []}
+        disabled={disabled}
+        label={name}
+        onChange={(v) => handlers.onUpdateTask(task, { assignee_ids: v.users, team_ids: v.teams, assignee_id: v.users[0] ?? null })}
+      />
+    );
   if (def.builtin === "status")
     return (
       <LabelCell
@@ -458,7 +500,8 @@ function TaskRow({
 }) {
   const { doneIds, readOnly, handlers, dragRef, defs, selected } = props;
   const pending = task.id.startsWith("tmp-");
-  const disabled = readOnly || pending;
+  const locked = useRowLocked(task);
+  const disabled = readOnly || pending || locked;
   const done = Boolean(task.status_id && doneIds.has(task.status_id));
   const isSelected = selected.has(task.id);
 
@@ -577,7 +620,8 @@ function SubitemToggle({ task, props, disabled }: { task: Task; props: Props; di
 function SubitemRow({ task, ...props }: Props & { task: Task }) {
   const { doneIds, readOnly, handlers, defs, selected } = props;
   const pending = task.id.startsWith("tmp-");
-  const disabled = readOnly || pending;
+  const locked = useRowLocked(task);
+  const disabled = readOnly || pending || locked;
   const done = Boolean(task.status_id && doneIds.has(task.status_id));
   const menu: MenuItem[] = [
     { label: "Abrir detalle", icon: <IconEdit size={16} />, onSelect: () => handlers.onOpenTask(task) },
@@ -627,10 +671,11 @@ function SubitemRow({ task, ...props }: Props & { task: Task }) {
 
 function TaskCard({ task, ...props }: Props & { task: Task }) {
   const { today, doneIds, readOnly, handlers, members, defs } = props;
+  const ctx = useCellContext();
   const pending = task.id.startsWith("tmp-");
-  const disabled = readOnly || pending;
+  const locked = useRowLocked(task);
+  const disabled = readOnly || pending || locked;
   const done = Boolean(task.status_id && doneIds.has(task.status_id));
-  const assignee = members.find((m) => m.user_id === task.assignee_id);
   const quick = defs.filter((d) => d.builtin === "status" || d.builtin === "priority" || d.column?.kind === "list").slice(0, 4);
 
   return (
@@ -658,7 +703,7 @@ function TaskCard({ task, ...props }: Props & { task: Task }) {
         </div>
       )}
       <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-muted">
-        <span>{assignee ? assignee.full_name || assignee.email : "Sin responsable"}</span>
+        <PeopleSummary value={{ users: task.assignee_ids ?? [], teams: task.team_ids ?? [] }} people={members} teams={ctx?.teams ?? []} />
         <DueBadge value={task.due_date} today={today} done={done} />
         {(props.childrenOf.get(task.id)?.length ?? 0) > 0 && (
           <button type="button" onClick={() => handlers.onOpenTask(task)} className="font-semibold text-accent">

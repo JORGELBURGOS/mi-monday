@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getChecklistTemplates, getWorkspaceFlow, getWorkspaceMembers } from "@/lib/data";
+import { getChecklistTemplates, getWorkspaceFlow, getWorkspaceMembers, getWorkspaceTeams } from "@/lib/data";
 import { uuidSchema } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader } from "@/components/ui/misc";
@@ -18,11 +18,12 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
   const supabase = await createClient();
   const { data: board } = await supabase.from("boards").select("id, name, workspace_id, is_archived").eq("id", boardId).maybeSingle();
   if (!board) notFound();
-  const [flow, members, { data: ai }, templates] = await Promise.all([
+  const [flow, members, { data: ai }, templates, teams] = await Promise.all([
     getWorkspaceFlow(board.workspace_id, user.id),
     getWorkspaceMembers(board.workspace_id),
     supabase.from("workspace_ai_settings").select("key_hint").eq("workspace_id", board.workspace_id).maybeSingle(),
     getChecklistTemplates(board.workspace_id),
+    getWorkspaceTeams(board.workspace_id),
   ]);
   if (!flow) notFound();
   const current = flow.boards.find((b) => b.id === boardId);
@@ -87,6 +88,7 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
         stats={stats}
         aiEnabled={Boolean(ai?.key_hint)}
         templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+        teams={teams.map((t) => ({ id: t.id, name: t.name }))}
       />
 
       {incoming.length > 0 && (

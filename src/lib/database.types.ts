@@ -416,6 +416,7 @@ export type Database = {
       }
       board_groups: {
         Row: {
+          editors: Json
           board_id: string
           color: string
           created_at: string
@@ -426,6 +427,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          editors?: Json
           board_id: string
           color?: string
           created_at?: string
@@ -436,6 +438,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          editors?: Json
           board_id?: string
           color?: string
           created_at?: string
@@ -464,18 +467,21 @@ export type Database = {
       }
       board_members: {
         Row: {
+          role: string
           board_id: string
           created_at: string
           granted_by: string | null
           user_id: string
         }
         Insert: {
+          role?: string
           board_id: string
           created_at?: string
           granted_by?: string | null
           user_id: string
         }
         Update: {
+          role?: string
           board_id?: string
           created_at?: string
           granted_by?: string | null
@@ -565,6 +571,7 @@ export type Database = {
       }
       boards: {
         Row: {
+          default_role: string
           archived_at: string | null
           created_at: string
           created_by: string | null
@@ -578,6 +585,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          default_role?: string
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -591,6 +599,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          default_role?: string
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -893,8 +902,123 @@ export type Database = {
           },
         ]
       }
+      board_teams: {
+        Row: {
+          board_id: string
+          created_at: string
+          granted_by: string | null
+          role: string
+          team_id: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          granted_by?: string | null
+          role?: string
+          team_id: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          granted_by?: string | null
+          role?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_teams_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_teams_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          created_at: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_teams: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_teams_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
+          assignee_ids: string[]
+          team_ids: string[]
           assignee_id: string | null
           board_id: string
           created_at: string
@@ -912,6 +1036,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assignee_ids?: string[]
+          team_ids?: string[]
           assignee_id?: string | null
           board_id: string
           created_at?: string
@@ -929,6 +1055,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assignee_ids?: string[]
+          team_ids?: string[]
           assignee_id?: string | null
           board_id?: string
           created_at?: string
@@ -1230,6 +1358,7 @@ export type Database = {
       }
     }
     Functions: {
+      my_board_role: { Args: { p_board: string }; Returns: string }
       admin_issue_provision_token: { Args: never; Returns: string }
       clear_workspace_ai_key: { Args: { p_workspace: string }; Returns: undefined }
       set_form_password: {

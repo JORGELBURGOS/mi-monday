@@ -25,7 +25,14 @@ const labelSchema = z.string().trim().min(1, { message: "El nombre no puede qued
 export const boardSettingsSchema = z
   .object({
     columns: z
-      .partialRecord(z.enum(["title", ...BUILTIN_KEYS]), z.object({ label: labelSchema.optional(), hidden: z.boolean().optional() }).strip())
+      .partialRecord(z.enum(["title", ...BUILTIN_KEYS]), z
+          .object({
+            label: labelSchema.optional(),
+            hidden: z.boolean().optional(),
+            editors: z.object({ users: z.array(z.uuid()).max(200).optional(), teams: z.array(z.uuid()).max(50).optional() }).strip().optional(),
+          })
+          .strip(),
+      )
       .optional(),
     priority: z
       .partialRecord(z.enum(["low", "medium", "high", "urgent"]), z.object({ label: labelSchema.optional(), color: z.enum(COLOR_NAMES).optional() }).strip())

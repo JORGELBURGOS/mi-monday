@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { createContext, useContext, useId, useMemo, useState, useTransition } from "react";
+import type { Team } from "@/lib/teams";
 import type { AutomationInput } from "@/app/actions/automations";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -123,6 +124,9 @@ export function draftFromRule(rule: Automation): Draft {
 /* -------------------------------------------------------------------------- */
 /*  Ejemplos listos para usar                                                  */
 /* -------------------------------------------------------------------------- */
+
+/** Equipos de la empresa (para asignar, avisar y condiciones). */
+const TeamsContext = createContext<Pick<Team, "id" | "name">[]>([]);
 
 export type Recipe = { id: string; label: string; build: (source: FlowBoard, base: Draft) => Draft };
 
@@ -274,11 +278,13 @@ export function RuleEditor({
   targets,
   members,
   templates = [],
+  teams = [],
   rule,
   initial,
   onClose,
   onSubmit,
 }: {
+  teams?: Pick<Team, "id" | "name">[];
   source: FlowBoard;
   targets: FlowBoard[];
   members: Member[];
@@ -383,6 +389,7 @@ export function RuleEditor({
   };
 
   return (
+    <TeamsContext.Provider value={teams}>
     <Dialog open onClose={onClose} title={rule ? "Editar regla" : "Nueva regla"} size="lg">
       <div className="space-y-6">
         {!rule && (
@@ -491,6 +498,7 @@ export function RuleEditor({
         </Button>
       </div>
     </Dialog>
+    </TeamsContext.Provider>
   );
 }
 
@@ -958,6 +966,7 @@ function ConditionValue({
   members: Member[];
   onChange: (v: string | undefined) => void;
 }) {
+  const teams = useContext(TeamsContext);
   const sel = (options: { value: string; label: string }[]) => (
     <Select aria-label="Valor" value={c.value ?? ""} onChange={(e) => onChange(e.target.value || undefined)} className="h-9 text-[13px]">
       <option value="">Elegí…</option>
@@ -971,7 +980,7 @@ function ConditionValue({
   if (c.field === "status") return sel(source.statuses.map((s) => ({ value: s.id, label: s.label })));
   if (c.field === "group") return sel(source.groups.map((g) => ({ value: g.id, label: g.name })));
   if (c.field === "priority") return sel(PRIORITIES.map((p) => ({ value: p.value, label: p.label })));
-  if (c.field === "assignee") return sel(members.map((m) => ({ value: m.user_id, label: displayName(m) })));
+  if (c.field === "assignee") return sel([...teams.map((t) => ({ value: t.id, label: `Equipo ${t.name}` })), ...members.map((m) => ({ value: m.user_id, label: displayName(m) }))]);
   if (c.field === "due_date")
     return (
       <span className="flex items-center gap-2 text-[13px]">
@@ -1013,6 +1022,7 @@ function ActionDetails({
   changeTarget: (id: string) => void;
 }) {
   const ac = d.ac;
+  const teams = useContext(TeamsContext);
   const people = (value: string | undefined, onChange: (v: string | undefined) => void, id: string, label: string, empty = "Elegí una persona") => (
     <Field id={id} label={label}>
       <Select id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value || undefined)}>
@@ -1020,6 +1030,19 @@ function ActionDetails({
         {members.map((m) => (
           <option key={m.user_id} value={m.user_id}>
             {displayName(m)}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+
+  const teamSelect = (value: string | undefined, onChange: (v: string | undefined) => void, id: string) => (
+    <Field id={id} label="Equipo">
+      <Select id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value || undefined)}>
+        <option value="">Elegí un equipo</option>
+        {teams.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
           </option>
         ))}
       </Select>
@@ -1072,11 +1095,13 @@ function ActionDetails({
           <Field id={`${uid}-amode`} label="Asignar">
             <Select id={`${uid}-amode`} value={ac.mode ?? "user"} onChange={(e) => setAc({ mode: e.target.value as ActionConfig["mode"] })}>
               <option value="user">A una persona</option>
+              {teams.length > 0 && <option value="team">A un equipo (reemplaza a los responsables)</option>}
               <option value="creator">A quien creó el ítem</option>
               <option value="clear">Quitar el responsable</option>
             </Select>
           </Field>
           {(ac.mode ?? "user") === "user" && people(ac.user_id, (v) => setAc({ user_id: v }), `${uid}-auser`, "Persona")}
+          {ac.mode === "team" && teamSelect(ac.team_id, (v) => setAc({ team_id: v }), `${uid}-ateam`)}
         </div>
       );
     case "set_due_date":
@@ -1220,9 +1245,11 @@ function ActionDetails({
               <option value="creator">Quien creó el ítem</option>
               <option value="admins">Los administradores de la empresa</option>
               <option value="user">Una persona en particular</option>
+              {teams.length > 0 && <option value="team">Un equipo</option>}
             </Select>
           </Field>
           {ac.to === "user" && people(ac.user_id, (v) => setAc({ user_id: v }), `${uid}-nuser`, "Persona")}
+          {ac.to === "team" && teamSelect(ac.team_id, (v) => setAc({ team_id: v }), `${uid}-nteam`)}
           <div className="sm:col-span-2">
             <Field id={`${uid}-msg`} label="Mensaje" hint={PLACEHOLDERS_HELP}>
               <Input id={`${uid}-msg`} value={ac.message ?? ""} maxLength={500} onChange={(e) => setAc({ message: e.target.value })} placeholder="«{titulo}» vence el {vencimiento}" />

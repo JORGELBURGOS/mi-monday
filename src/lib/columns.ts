@@ -151,6 +151,8 @@ export type ColumnSettings = {
   templateId?: string;
   /** Checklist: al pasar el elemento a un estado terminado, tildar todo. */
   completeOnDone?: boolean;
+  /** Quién puede cambiar la columna (vacío = todos los que editan el tablero). */
+  editors?: { users?: string[]; teams?: string[] };
   /** Checklist: al completarse, pasar el elemento a este estado. */
   onCompleteStatusId?: string;
 };
@@ -171,6 +173,8 @@ export const columnSettingsSchema = z
     templateId: z.uuid().optional(),
     completeOnDone: z.boolean().optional(),
     onCompleteStatusId: z.uuid().optional(),
+    /** Quién puede cambiar la columna (vacío = todos los que editan el tablero). */
+    editors: z.object({ users: z.array(z.uuid()).max(200).optional(), teams: z.array(z.uuid()).max(50).optional() }).strip().optional(),
   })
   .strip();
 

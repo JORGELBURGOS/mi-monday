@@ -203,12 +203,14 @@ export type ActionConfig = {
   status_id?: string;
   group_id?: string;
   priority?: Priority;
-  mode?: "user" | "creator" | "clear" | "offset" | "value";
+  mode?: "user" | "creator" | "clear" | "offset" | "value" | "team";
   user_id?: string;
   days?: number;
   column_id?: string;
   value?: string | number | boolean | string[];
-  to?: "assignee" | "creator" | "user" | "admins";
+  to?: "assignee" | "creator" | "user" | "admins" | "team";
+  team_id?: string;
+  team_name?: string;
   message?: string;
   text?: string;
   title?: string;
@@ -399,7 +401,13 @@ export function describeAutomation<B extends BoardLookup>(a: Automation, boards:
       break;
     case "set_assignee":
       then =
-        ac.mode === "clear" ? "quitar el responsable" : ac.mode === "creator" ? "asignarlo a quien lo creó" : `asignarlo a ${personName(ac.user_id)}`;
+        ac.mode === "clear"
+          ? "quitar el responsable"
+          : ac.mode === "creator"
+            ? "asignarlo a quien lo creó"
+            : ac.mode === "team"
+              ? `pasarlo al equipo «${ac.team_name ?? "elegido"}»`
+              : `asignarlo a ${personName(ac.user_id)}`;
       break;
     case "set_due_date":
       then = ac.mode === "clear" ? "quitar el vencimiento" : ac.days ? `vencimiento en ${days(ac.days)}` : "vencimiento hoy";
@@ -432,7 +440,15 @@ export function describeAutomation<B extends BoardLookup>(a: Automation, boards:
       break;
     case "notify": {
       const to =
-        ac.to === "creator" ? "a quien lo creó" : ac.to === "user" ? `a ${personName(ac.user_id)}` : ac.to === "admins" ? "a los administradores" : "al responsable";
+        ac.to === "creator"
+          ? "a quien lo creó"
+          : ac.to === "user"
+            ? `a ${personName(ac.user_id)}`
+            : ac.to === "admins"
+              ? "a los administradores"
+              : ac.to === "team"
+                ? `al equipo «${ac.team_name ?? "elegido"}»`
+                : "a los responsables";
       then = `avisar ${to}`;
       break;
     }
