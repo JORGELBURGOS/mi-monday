@@ -23,6 +23,7 @@ export const TRIGGER_TYPES = [
   "assignee_changed",
   "priority_changed",
   "column_changed",
+  "checklist_changed",
   "date_arrives",
   "stale",
   "schedule",
@@ -39,6 +40,7 @@ export const TRIGGER_GROUPS: { label: string; items: { value: TriggerType; label
       { value: "assignee_changed", label: "Se asigna un responsable" },
       { value: "priority_changed", label: "Cambia la prioridad" },
       { value: "column_changed", label: "Cambia el valor de una columna" },
+      { value: "checklist_changed", label: "Se tilda un paso del checklist" },
     ],
   },
   {
@@ -134,6 +136,21 @@ export type TriggerConfig = {
   freq?: "daily" | "weekdays" | "weekly" | "monthly";
   weekday?: number;
   monthday?: number;
+  /** Checklist: qué tiene que pasar. */
+  event?: ChecklistEvent;
+  step?: string;
+  step_index?: number;
+  percent?: number;
+};
+
+export const CHECKLIST_EVENTS = ["started", "any_checked", "step_checked", "percent", "completed"] as const;
+export type ChecklistEvent = (typeof CHECKLIST_EVENTS)[number];
+export const CHECKLIST_EVENT_LABELS: Record<ChecklistEvent, string> = {
+  started: "Se tilda el primer paso (arranca el checklist)",
+  any_checked: "Se tilda cualquier paso",
+  step_checked: "Se tilda un paso puntual",
+  percent: "El avance llega a un porcentaje",
+  completed: "Se completan todos los pasos",
 };
 
 export type ActionConfig = {
@@ -194,7 +211,7 @@ export function actionModeOf(a: Pick<Automation, "action_type" | "link_direction
 /*  Descripción en lenguaje natural                                            */
 /* -------------------------------------------------------------------------- */
 
-type BoardLookup = Pick<FlowBoard, "id" | "name" | "groups" | "statuses" | "columns">;
+type BoardLookup = Pick<FlowBoard, "id" | "name" | "groups" | "statuses" | "columns"> & { checklists?: { id: string; name: string }[] };
 type PersonLookup = { user_id: string; full_name: string | null; email: string | null };
 
 function days(n: number) {
@@ -247,6 +264,21 @@ export function describeAutomation<B extends BoardLookup>(a: Automation, boards:
       const col = source?.columns.find((c) => c.id === tc.column_id);
       const val = col?.kind === "list" ? col.options.find((o) => o.id === tc.value)?.label : tc.value;
       when = `Cuando cambia «${col?.name ?? "una columna"}»${val ? ` a «${val === "true" ? "Sí" : val}»` : ""}`;
+      break;
+    }
+    case "checklist_changed": {
+      const col = tc.column_id ? source?.checklists?.find((c) => c.id === tc.column_id)?.name : null;
+      const where = col ? `«${col}»` : "un checklist";
+      when =
+        tc.event === "started"
+          ? `Cuando se tilda el primer paso de ${where}`
+          : tc.event === "completed"
+            ? `Cuando se completa ${where}`
+            : tc.event === "percent"
+              ? `Cuando ${where} llega al ${tc.percent ?? 50}%`
+              : tc.event === "step_checked"
+                ? `Cuando se tilda ${tc.step ? `el paso «${tc.step}»` : `el paso ${tc.step_index ?? 1}`} de ${where}`
+                : `Cuando se tilda un paso de ${where}`;
       break;
     }
     case "date_arrives": {

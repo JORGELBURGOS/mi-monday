@@ -57,6 +57,12 @@ DISPARADORES (trigger_type) y sus datos:
 - "assignee_changed": trigger_config.user_id opcional (a quién se asigna).
 - "priority_changed": trigger_config.priority opcional: "low" | "medium" | "high" | "urgent".
 - "column_changed": trigger_config.column_id (obligatorio) y trigger_config.value opcional (para columnas de etiqueta, el id de la opción; para casilla "true"/"false"; si no, texto).
+- "checklist_changed": cuando se tildan pasos de un checklist. trigger_config.column_id opcional (id de la columna checklist; vacío = cualquier checklist del tablero) y trigger_config.event:
+    "started" = se tilda el primer paso (el checklist arranca; útil para "cuando se marca el primer ítem del checklist pasar a En curso"),
+    "any_checked" = se tilda cualquier paso,
+    "step_checked" = se tilda un paso puntual: trigger_config.step = texto exacto del paso, o trigger_config.step_index = número de paso (1 = el primero),
+    "percent" = el avance llega a trigger_config.percent (1-100),
+    "completed" = se completan todos los pasos.
 - "date_arrives": trigger_config.date_field = "due_date" (vencimiento) o el id de una columna de fecha; trigger_config.offset_days (negativo = días antes, positivo = días después, 0 = el día); trigger_config.hour (0-23, por defecto 8).
 - "stale": trigger_config.days (días sin cambiar de estado), trigger_config.hour, trigger_config.status_id opcional.
 - "schedule": trigger_config.freq "daily" | "weekdays" | "weekly" | "monthly", trigger_config.hour, trigger_config.weekday (1=lunes…7=domingo, si weekly), trigger_config.monthday (1-31, si monthly).
@@ -86,6 +92,7 @@ type Ctx = {
   statuses: { id: string; label: string; done: boolean }[];
   groups: { id: string; name: string }[];
   columns: { id: string; name: string; kind: string; options?: { id: string; label: string }[] }[];
+  checklists: { id: string; name: string }[];
   boards: { id: string; name: string; statuses: { id: string; label: string }[]; groups: { id: string; name: string }[] }[];
   people: { id: string; name: string }[];
 };
@@ -97,7 +104,7 @@ Tu trabajo: convertir el pedido de la persona en UNA regla del motor de Vetta.
 ${SPEC}
 
 DATOS DEL TABLERO "${ctx.board.name}" (id ${ctx.board.id}). Usá SOLO estos ids, nunca inventes:
-${JSON.stringify({ estados: ctx.statuses, carpetas: ctx.groups, columnas: ctx.columns, otros_tableros: ctx.boards, personas: ctx.people })}
+${JSON.stringify({ estados: ctx.statuses, carpetas: ctx.groups, columnas: ctx.columns, checklists: ctx.checklists, otros_tableros: ctx.boards, personas: ctx.people })}
 
 Respondé SOLO un objeto JSON, sin texto extra, con UNA de estas dos formas:
 1) Si se puede armar la regla:
@@ -105,6 +112,7 @@ Respondé SOLO un objeto JSON, sin texto extra, con UNA de estas dos formas:
 2) Si falta un dato o el pedido es ambiguo (por ejemplo, hay dos estados parecidos o una persona que no existe) o el motor no puede hacerlo:
 {"ok": false, "question": "pregunta corta en español rioplatense para aclarar, o explicación de por qué no se puede"}
 
+Interpretá con buena fe lo que la persona quiere decir (por ejemplo "marcar como ok el primer checklist" = tildar el primer paso del checklist) y armá la regla si el motor lo permite; preguntá solo si de verdad falta un dato.
 Reglas: una sola acción por regla (si piden varias, armá la primera y aclaralo en explanation). No uses ids que no estén en los datos. Las fechas y horas son de Argentina.`;
 }
 
@@ -147,6 +155,7 @@ async function loadContext(boardId: string, workspaceId: string): Promise<Ctx> {
         kind: c.kind,
         ...(Array.isArray(c.options) && c.options.length ? { options: (c.options as { id: string; label: string }[]).map((o) => ({ id: o.id, label: o.label })) } : {}),
       })),
+    checklists: (columns ?? []).filter((c) => c.kind === "checklist").map((c) => ({ id: c.id, name: c.name })),
     boards: (boards ?? [])
       .filter((b) => b.id !== boardId)
       .map((b) => ({

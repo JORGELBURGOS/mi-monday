@@ -1,4 +1,4 @@
-import { ACTION_TYPES, CONDITION_FIELDS, CONDITION_OPS, COPY_FIELDS, TRIGGER_TYPES, type ActionConfig, type ActionMode, type Condition, type CopyField, type TriggerConfig, type TriggerType } from "@/lib/automations";
+import { ACTION_TYPES, CHECKLIST_EVENTS, CONDITION_FIELDS, CONDITION_OPS, COPY_FIELDS, TRIGGER_TYPES, type ActionConfig, type ActionMode, type Condition, type CopyField, type TriggerConfig, type TriggerType } from "@/lib/automations";
 import type { FlowBoard, Member } from "@/lib/data";
 import type { Draft } from "./rule-editor";
 
@@ -46,7 +46,16 @@ export function draftFromProposal(
     freq: ["daily", "weekdays", "weekly", "monthly"].includes(str(t.freq)) ? (str(t.freq) as TriggerConfig["freq"]) : undefined,
     weekday: num(t.weekday, 1, 7),
     monthday: num(t.monthday, 1, 31),
+    event: (CHECKLIST_EVENTS as readonly string[]).includes(str(t.event)) ? (str(t.event) as TriggerConfig["event"]) : undefined,
+    step: str(t.step).trim().slice(0, 300) || undefined,
+    step_index: num(t.step_index, 1, 300),
+    percent: num(t.percent, 1, 100),
   });
+  if (trigger_type === "checklist_changed") {
+    // La columna de checklist no está entre las columnas de reglas: se valida aparte.
+    tc.column_id = source.checklists?.some((c) => c.id === t.column_id) ? (t.column_id as string) : undefined;
+    tc.event ??= "any_checked";
+  }
 
   const conditions: Condition[] = (Array.isArray(raw.conditions) ? raw.conditions : [])
     .slice(0, 20)

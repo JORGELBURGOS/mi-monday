@@ -216,6 +216,8 @@ export type FlowBoard = Pick<Board, "id" | "name" | "visibility" | "is_archived"
   groups: Pick<Group, "id" | "name" | "color" | "position">[];
   statuses: Pick<Status, "id" | "label" | "color" | "position" | "is_done">[];
   columns: BoardColumn[];
+  /** Columnas de checklist (para el disparador "se tilda un paso"). */
+  checklists: { id: string; name: string }[];
 };
 
 export type WorkspaceFlow = {
@@ -264,6 +266,7 @@ export async function getWorkspaceFlow(workspaceId: string, userId: string): Pro
         .filter((c) => c.board_id === b.id)
         .map(parseColumn)
         .filter((c) => !NON_RULE_KINDS.includes(c.kind)),
+      checklists: (columns.data ?? []).filter((c) => c.board_id === b.id && c.kind === "checklist").map((c) => ({ id: c.id, name: c.name })),
     })),
   };
 }

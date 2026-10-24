@@ -29,6 +29,9 @@ import {
   type CopyField,
   type TriggerConfig,
   type TriggerType,
+  CHECKLIST_EVENTS,
+  CHECKLIST_EVENT_LABELS,
+  type ChecklistEvent,
 } from "@/lib/automations";
 import type { Automation, FlowBoard, Member } from "@/lib/data";
 
@@ -274,7 +277,7 @@ export function RuleEditor({
     setD((x) => ({
       ...x,
       trigger_type: t,
-      tc: t === "date_arrives" ? { date_field: "due_date", offset_days: 0, hour: 8 } : t === "stale" ? { days: 3, hour: 8 } : t === "schedule" ? { freq: "daily", hour: 8 } : {},
+      tc: t === "date_arrives" ? { date_field: "due_date", offset_days: 0, hour: 8 } : t === "stale" ? { days: 3, hour: 8 } : t === "schedule" ? { freq: "daily", hour: 8 } : t === "checklist_changed" ? { event: "started" } : {},
       conditions: TIME_TRIGGERS.includes(t) && x.conditions.length === 0 && t !== "schedule" ? [notDone] : x.conditions,
     }));
 
@@ -517,6 +520,60 @@ function TriggerDetails({
           </Select>
         </Field>
       );
+    case "checklist_changed": {
+      const lists = source.checklists ?? [];
+      const event = tc.event ?? "any_checked";
+      return lists.length === 0 ? (
+        <p className="text-sm text-muted sm:col-span-2">Este tablero no tiene columnas de checklist. Agregá una desde la tabla (＋ Columna › Checklist).</p>
+      ) : (
+        <>
+          <Field id={`${uid}-ckc`} label="Checklist">
+            <Select id={`${uid}-ckc`} value={tc.column_id ?? ""} onChange={(e) => setTc({ column_id: e.target.value || undefined })}>
+              <option value="">{lists.length === 1 ? lists[0].name : "Cualquier checklist"}</option>
+              {lists.length > 1 &&
+                lists.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <Field id={`${uid}-cke`} label="Qué tiene que pasar">
+            <Select id={`${uid}-cke`} value={event} onChange={(e) => setTc({ event: e.target.value as ChecklistEvent })}>
+              {CHECKLIST_EVENTS.map((ev) => (
+                <option key={ev} value={ev}>
+                  {CHECKLIST_EVENT_LABELS[ev]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {event === "step_checked" && (
+            <>
+              <Field id={`${uid}-cks`} label="Texto del paso" hint="Tal cual figura en el checklist (sin importar mayúsculas)">
+                <Input id={`${uid}-cks`} value={tc.step ?? ""} maxLength={300} onChange={(e) => setTc({ step: e.target.value || undefined, step_index: e.target.value ? undefined : tc.step_index })} />
+              </Field>
+              <Field id={`${uid}-cki`} label="…o número de paso" hint="1 = el primer paso (no cuentan las secciones)">
+                <Input
+                  id={`${uid}-cki`}
+                  type="number"
+                  min={1}
+                  max={300}
+                  value={tc.step_index ?? ""}
+                  disabled={Boolean(tc.step)}
+                  onChange={(e) => setTc({ step_index: e.target.value ? Math.max(1, Math.min(300, Number(e.target.value) || 1)) : undefined })}
+                  className="w-24"
+                />
+              </Field>
+            </>
+          )}
+          {event === "percent" && (
+            <Field id={`${uid}-ckp`} label="Porcentaje de avance">
+              <Input id={`${uid}-ckp`} type="number" min={1} max={100} value={tc.percent ?? 50} onChange={(e) => setTc({ percent: Math.max(1, Math.min(100, Number(e.target.value) || 50)) })} className="w-24" />
+            </Field>
+          )}
+        </>
+      );
+    }
     case "column_changed": {
       const col = source.columns.find((c) => c.id === tc.column_id);
       return source.columns.length === 0 ? (

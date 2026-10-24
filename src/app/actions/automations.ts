@@ -10,7 +10,7 @@ import { fail, fromDb, ok, type ActionResult } from "@/lib/action-result";
 import { POSITION_STEP } from "@/lib/constants";
 import { normalizeValue, parseColumn, type CellValue } from "@/lib/columns";
 import { displayName } from "@/lib/format";
-import { ACTION_TYPES, CONDITION_FIELDS, CONDITION_OPS, COPY_FIELDS, SAME_BOARD_ACTIONS, TRIGGER_TYPES } from "@/lib/automations";
+import { ACTION_TYPES, CHECKLIST_EVENTS, CONDITION_FIELDS, CONDITION_OPS, COPY_FIELDS, SAME_BOARD_ACTIONS, TRIGGER_TYPES } from "@/lib/automations";
 
 const uuid = z.uuid({ message: "Identificador inválido." });
 const int = (min: number, max: number) => z.number().int().min(min).max(max);
@@ -31,6 +31,10 @@ const triggerConfigSchema = z
     freq: z.enum(["daily", "weekdays", "weekly", "monthly"]),
     weekday: int(1, 7),
     monthday: int(1, 31),
+    event: z.enum(CHECKLIST_EVENTS),
+    step: z.string().trim().max(300),
+    step_index: int(1, 300),
+    percent: int(1, 100),
   })
   .partial();
 
@@ -119,6 +123,21 @@ async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
       if (!tc.column_id) return { error: "Elegí la columna que dispara la regla." } as const;
       d.trigger_config = pick(tc, ["column_id", "value"]);
       break;
+    case "checklist_changed": {
+      if (tc.column_id) {
+        const { data: col } = await ctx.supabase.from("board_columns").select("kind").eq("id", tc.column_id).eq("board_id", boardId).maybeSingle();
+        if (!col || col.kind !== "checklist") return { error: "Elegí una columna de checklist de este tablero." } as const;
+      }
+      const event = tc.event ?? "any_checked";
+      if (event === "step_checked" && !tc.step && !tc.step_index) return { error: "Indicá qué paso del checklist dispara la regla." } as const;
+      d.trigger_config = {
+        event,
+        ...pick(tc, ["column_id"]),
+        ...(event === "step_checked" ? (tc.step ? { step: tc.step } : { step_index: tc.step_index }) : {}),
+        ...(event === "percent" ? { percent: tc.percent ?? 50 } : {}),
+      };
+      break;
+    }
     case "date_arrives":
       d.trigger_config = { date_field: tc.date_field ?? "due_date", offset_days: tc.offset_days ?? 0, hour: tc.hour ?? 8 };
       break;
