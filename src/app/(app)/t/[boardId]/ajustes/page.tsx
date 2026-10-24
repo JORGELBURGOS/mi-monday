@@ -80,13 +80,19 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
           <Card>
             <h2 className="font-bold">Archivar o eliminar</h2>
             <p className="mb-4 mt-1 text-sm text-muted">
-              Para evitar borrados accidentales, primero hay que archivar el tablero; recién ahí se puede eliminar.
+              Para evitar borrados accidentales, primero hay que archivar el tablero; recién ahí se puede eliminar. Solo un administrador de la
+              empresa puede archivar, restaurar o eliminar tableros.
             </p>
-            <BoardHeaderActions
-              board={{ id: board.id, name: board.name, isArchived: board.is_archived }}
-              canManage={canManage}
-              showSettingsLink={false}
-            />
+            {data.workspace.role === "owner" || data.workspace.role === "admin" ? (
+              <BoardHeaderActions
+                board={{ id: board.id, name: board.name, isArchived: board.is_archived }}
+                canManage={canManage}
+                canArchive
+                showSettingsLink={false}
+              />
+            ) : (
+              <p className="text-sm font-semibold text-muted">Pedile a un administrador de la empresa que lo haga.</p>
+            )}
           </Card>
         </div>
       )}

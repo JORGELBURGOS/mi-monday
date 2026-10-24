@@ -80,8 +80,9 @@ export async function setBoardArchivedAction(boardId: string, archived: boolean)
     .update({ is_archived: archived })
     .eq("id", boardId)
     .select("id");
+  if (error?.code === "42501") return fail("Solo un administrador de la empresa puede archivar o restaurar tableros.");
   if (error) return fromDb(error);
-  if (!data?.length) return fail("Solo quien creó el tablero o un administrador puede archivarlo.");
+  if (!data?.length) return fail("Solo un administrador de la empresa puede archivar o restaurar tableros.");
 
   revalidatePath("/", "layout");
   return ok(undefined, archived ? "Tablero archivado." : "Tablero restaurado.");
@@ -98,7 +99,7 @@ export async function deleteBoardAction(boardId: string): Promise<ActionResult> 
 
   const { data, error } = await ctx.supabase.from("boards").delete().eq("id", boardId).select("id");
   if (error) return fromDb(error, "No se pudo eliminar el tablero.");
-  if (!data?.length) return fail("Solo quien creó el tablero o un administrador puede eliminarlo.");
+  if (!data?.length) return fail("Solo un administrador de la empresa puede eliminar tableros.");
 
   revalidatePath("/", "layout");
   redirect(`/e/${board.workspace_id}`);

@@ -12,10 +12,13 @@ import { IconArchive, IconFlow, IconSettings, IconTrash } from "@/components/ui/
 export function BoardHeaderActions({
   board,
   canManage,
+  canArchive,
   showSettingsLink = true,
 }: {
   board: { id: string; name: string; isArchived: boolean };
   canManage: boolean;
+  /** Archivar, restaurar y eliminar: solo administradores de la empresa. */
+  canArchive: boolean;
   showSettingsLink?: boolean;
 }) {
   const toast = useToast();
@@ -44,7 +47,7 @@ export function BoardHeaderActions({
           </Link>
         </>
       )}
-      {board.isArchived ? (
+      {!canArchive ? null : board.isArchived ? (
         <>
           <Button size="sm" variant="primary" onClick={() => setArchived(false)} disabled={pending}>
             Restaurar

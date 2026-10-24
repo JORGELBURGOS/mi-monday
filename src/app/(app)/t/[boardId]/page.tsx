@@ -58,12 +58,13 @@ export default async function BoardPage({ params, searchParams }: Props) {
         <BoardHeaderActions
           board={{ id: board.id, name: board.name, isArchived: board.is_archived }}
           canManage={canManage}
+          canArchive={workspace.role === "owner" || workspace.role === "admin"}
         />
       </div>
 
       {board.is_archived && (
         <div role="status" className="mb-4 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
-          Este tablero está archivado: se puede consultar pero no editar. {canManage ? "Restauralo para seguir trabajando." : ""}
+          Este tablero está archivado: se puede consultar pero no editar. {workspace.role === "owner" || workspace.role === "admin" ? "Restauralo para seguir trabajando." : "Solo un administrador de la empresa puede restaurarlo."}
         </div>
       )}
 
