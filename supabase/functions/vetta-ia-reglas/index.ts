@@ -104,7 +104,7 @@ type Ctx = {
 };
 
 function systemPrompt(ctx: Ctx) {
-  return `Sos el asistente de reglas automáticas de Vetta, una plataforma de gestión de tareas parecida a Monday.
+  return `Sos el asistente de reglas automáticas de Vetta, una plataforma de gestión de tareas y procesos.
 Tu trabajo: convertir el pedido de la persona en UNA regla del motor de Vetta.
 
 ${SPEC}
@@ -119,7 +119,7 @@ Respondé SOLO un objeto JSON, sin texto extra, con UNA de estas dos formas:
 {"ok": false, "question": "pregunta corta en español rioplatense para aclarar, o explicación de por qué no se puede"}
 
 Interpretá con buena fe lo que la persona quiere decir (por ejemplo "marcar como ok el primer checklist" = tildar el primer paso del checklist) y armá la regla si el motor lo permite; preguntá solo si de verdad falta un dato.
-Reglas: una sola acción por regla (si piden varias, armá la primera y aclaralo en explanation). No uses ids que no estén en los datos. Las fechas y horas son de Argentina.`;
+Reglas: una sola acción por regla (si piden varias, armá la primera y aclaralo en explanation). No uses ids que no estén en los datos. Las fechas y horas son de Argentina. Nunca nombres ni compares con otras herramientas o marcas en name ni en explanation.`;
 }
 
 async function authenticate(req: Request) {

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Vetta · columnas al estilo Monday
+-- Vetta · columnas v2
 -- -----------------------------------------------------------------------------
 --   * Más tipos de columna (estado, desplegable múltiple, texto largo,
 --     cronograma, calificación, enlace, email, teléfono, hora, fórmula,

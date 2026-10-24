@@ -82,7 +82,7 @@ export function fromTemplate(t: Pick<ChecklistTemplate, "items">): CheckItem[] {
 }
 
 /**
- * Editor completo de checklist, como las apps de checklist de Monday:
+ * Editor completo de checklist:
  * secciones, responsables, vencimientos, estados por paso, notas,
  * arrastrar para ordenar, plantillas, pegar listas y copiar como texto.
  */

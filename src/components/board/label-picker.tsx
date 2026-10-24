@@ -22,7 +22,7 @@ export type LabelEditing = {
 const newId = () => `new-${Math.random().toString(36).slice(2, 9)}`;
 
 /**
- * Celda de etiquetas al estilo Monday: un bloque de color que al tocarlo
+ * Celda de etiquetas: un bloque de color que al tocarlo
  * muestra las etiquetas para elegir y, abajo, “Editar etiquetas”.
  */
 export function LabelCell({

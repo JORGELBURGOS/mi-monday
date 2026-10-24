@@ -21,7 +21,7 @@ type FilterKey = (typeof FILTERS)[number]["key"];
 type Row = HistoryEntry & { change: DescribedChange };
 
 /**
- * Historial completo del ítem (como el "Registro de actividad" de Monday):
+ * Historial completo del ítem:
  * quién cambió qué, cuándo, el valor anterior y el nuevo, y qué regla lo hizo.
  */
 export function TaskHistory({ taskId, lookup, reloadKey }: { taskId: string; lookup: HistoryLookup; reloadKey?: string }) {

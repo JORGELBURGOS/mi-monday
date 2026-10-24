@@ -3,7 +3,7 @@ import type { Json, Tables } from "@/lib/database.types";
 import { COLOR_NAMES, asColor, type ColorName } from "@/lib/constants";
 
 /*
- * Columnas propias de cada tablero (como las columnas de Monday). Los valores
+ * Columnas propias de cada tablero. Los valores
  * se guardan en tasks.custom_values como { <id de columna>: valor }:
  *   text, long_text, link, email, phone → string
  *   number, rating → number · checkbox → true
@@ -84,7 +84,7 @@ export const COLUMN_KIND_HELP: Record<ColumnKind, string> = {
   email: "Una dirección de email.",
   phone: "Un número de teléfono.",
   hour: "Una hora del día.",
-  formula: "Calcula un valor a partir de otras columnas, como en Excel.",
+  formula: "Calcula un valor a partir de otras columnas.",
   item_id: "Un código único de cada elemento (solo lectura).",
   created_log: "Quién creó el elemento y cuándo (solo lectura).",
   updated_log: "Cuándo se modificó por última vez (solo lectura).",

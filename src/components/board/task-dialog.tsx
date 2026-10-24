@@ -257,7 +257,7 @@ export function TaskDialog({
                       disabled={readOnly || task.id.startsWith("tmp-")}
                       onChange={(next) => {
                         setValues((prev) => ({ ...prev, [col.id]: next.length ? next : null }));
-                        // El checklist se guarda en el momento, como en Monday.
+                        // El checklist se guarda en el momento.
                         void setCustomValuesAction(task.id, { [col.id]: next.length ? next : null }).then((r) => {
                           if (!r.ok) setError(r.error);
                         });

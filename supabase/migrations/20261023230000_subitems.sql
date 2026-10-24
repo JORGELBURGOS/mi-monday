@@ -1,5 +1,5 @@
 -- =============================================================================
--- Vetta · subelementos (como en Monday)
+-- Vetta · subelementos
 -- -----------------------------------------------------------------------------
 --   * tasks.parent_id: un elemento puede tener subelementos (un solo nivel).
 --   * Un subelemento vive en el mismo tablero y carpeta que su elemento; si el

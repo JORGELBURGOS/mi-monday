@@ -1,5 +1,5 @@
 /*
- * Motor de fórmulas (estilo Monday / Excel), sin eval: tokenizador, parser
+ * Motor de fórmulas, sin eval: tokenizador, parser
  * recursivo y evaluador. Las columnas se referencian por nombre entre llaves:
  *   {Precio} * {Cantidad}
  *   IF({Estado} = "Listo", "✔", "Pendiente")
@@ -101,7 +101,7 @@ function tokenize(src: string): Tok[] {
       continue;
     }
     if (c === ";") {
-      // Separador de argumentos al estilo Excel en español.
+      // Separador de argumentos en español (punto y coma).
       out.push({ t: ",", p: i });
       i++;
       continue;
@@ -254,7 +254,7 @@ function toDate(v: FValue): Date | null {
   const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0)));
   return Number.isNaN(d.getTime()) ? null : d;
 }
-/** Una fecha vacía deja vacío el resultado (como en Monday), no es un error. */
+/** Una fecha vacía deja vacío el resultado, no es un error. */
 class EmptyResult extends Error {}
 
 function date(v: FValue, fn: string): Date {

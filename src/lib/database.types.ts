@@ -1,4 +1,4 @@
-// Generado desde el esquema de Supabase (proyecto mi-monday).
+// Generado desde el esquema de Supabase de Vetta.
 // Para regenerar: npx supabase gen types typescript --project-id <ref> > src/lib/database.types.ts
 
 export type Json =

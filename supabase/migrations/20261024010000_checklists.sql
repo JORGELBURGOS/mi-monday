@@ -1,5 +1,5 @@
 -- =============================================================================
--- Vetta · checklists completos (como las apps de checklist de Monday)
+-- Vetta · checklists completos
 -- -----------------------------------------------------------------------------
 --   * checklist_templates: plantillas de checklist por empresa.
 --   * Una columna Checklist puede tener una plantilla automática: todo elemento

@@ -614,7 +614,7 @@ export function BoardView({
           )}
           <span className="ml-auto flex items-center gap-2">
             {view === "tabla" && <ColumnsVisibility defs={allDefs} canManage={editable} onToggle={(d, visible) => setHidden(d, !visible)} />}
-            <Button size="sm" variant="ghost" onClick={() => exportCsv(visibleTasks)} title="Descargar como planilla (CSV para Excel)">
+            <Button size="sm" variant="ghost" onClick={() => exportCsv(visibleTasks)} title="Descargar como planilla (CSV)">
               Exportar
             </Button>
             <span className="text-xs text-muted" aria-live="polite">

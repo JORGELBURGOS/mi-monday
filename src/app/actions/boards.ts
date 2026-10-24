@@ -275,8 +275,8 @@ export async function deleteStatusAction(statusId: string): Promise<ActionResult
 }
 
 /**
- * Guarda de una vez las etiquetas del Estado (edición en la celda, como en
- * Monday): actualiza las existentes, crea las nuevas, elimina las quitadas y
+ * Guarda de una vez las etiquetas del Estado (edición en la celda):
+ * actualiza las existentes, crea las nuevas, elimina las quitadas y
  * respeta el orden recibido.
  */
 const statusListSchema = z

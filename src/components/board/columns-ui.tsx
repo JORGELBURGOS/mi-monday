@@ -652,7 +652,7 @@ function FormulaEditor({
 
   return (
     <section className="space-y-3">
-      <Field id="col-formula" label="Fórmula" hint="Columnas entre llaves, como en Monday">
+      <Field id="col-formula" label="Fórmula" hint="Escribí los nombres de las columnas entre llaves, por ejemplo {Precio}">
         <Textarea
           id="col-formula"
           ref={setTextarea}

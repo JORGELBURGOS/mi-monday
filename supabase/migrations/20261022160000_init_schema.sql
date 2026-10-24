@@ -1,5 +1,5 @@
 -- =============================================================================
--- Mi Monday · esquema inicial
+-- Vetta · esquema inicial
 -- -----------------------------------------------------------------------------
 -- Idempotente: se puede ejecutar más de una vez sin borrar datos.
 -- No contiene sentencias DROP ni modifica datos existentes: usa

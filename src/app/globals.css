@@ -49,7 +49,7 @@
   --chip-navy-bg: #dfe5ef;   --chip-navy-fg: #1f3a68;   --chip-navy-dot: #36588f;
   --chip-olive-bg: #eceedb;  --chip-olive-fg: #4f5a17;  --chip-olive-dot: #8a982f;
 
-  /* Relleno sólido de etiquetas (estilo Monday): contraste AA con su texto. */
+  /* Relleno sólido de etiquetas: contraste AA con su texto. */
   --solid-gray: #6b665e;   --solid-gray-fg: #fff;
   --solid-amber: #9a6200;  --solid-amber-fg: #fff;
   --solid-blue: #2563c9;   --solid-blue-fg: #fff;

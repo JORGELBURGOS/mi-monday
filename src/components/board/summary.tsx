@@ -8,7 +8,7 @@ import type { PriorityLabel } from "@/lib/board-settings";
 import type { ColumnDef } from "./columns-ui";
 import type { Member, Status, Task } from "./types";
 
-/** Fila de resumen al pie de cada carpeta (como el pie de grupo de Monday). */
+/** Fila de resumen al pie de cada carpeta. */
 export function GroupSummaryRow({
   defs,
   tasks,
@@ -159,7 +159,7 @@ function DateRange({ dates }: { dates: string[] }) {
   );
 }
 
-/** Barra de distribución por etiqueta (la "batería" de Monday). */
+/** Barra de distribución por etiqueta. */
 function Battery({ total, parts }: { total: number; parts: { label: string; color: ColorName | null; n: number }[] }) {
   const shown = parts.filter((p) => p.n > 0);
   const summary = shown.map((p) => `${p.label}: ${p.n} (${Math.round((p.n / total) * 100)}%)`).join(", ");

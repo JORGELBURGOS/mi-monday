@@ -59,7 +59,7 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
           <Card>
             <h2 className="font-bold">Columnas, estados y etiquetas</h2>
             <p className="mt-1 text-sm text-muted">
-              Se editan directamente en el tablero, como en Monday: con el <strong className="text-fg">+</strong> al final de los
+              Se editan directamente en el tablero: con el <strong className="text-fg">+</strong> al final de los
               encabezados agregás columnas (estado, números, fórmula, fecha, cronograma y más); con el menú de cada encabezado la
               renombrás, configurás, movés u ocultás; y desde cualquier celda de estado, “Editar etiquetas” crea, renombra y colorea
               las etiquetas.{" "}

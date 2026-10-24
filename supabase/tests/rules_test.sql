@@ -34,7 +34,7 @@ declare
   tk uuid; tk2 uuid; tk3 uuid;
   r1 uuid; r2 uuid; r3 uuid; r4 uuid; r5 uuid; r6 uuid; r7 uuid;
   today date := (now() at time zone 'America/Argentina/Buenos_Aires')::date;
-  monday timestamptz;
+  lunes timestamptz;
   n int;
   blocked boolean;
 begin
@@ -223,16 +223,16 @@ begin
   perform pg_temp.check(not exists (select 1 from public.notifications where user_id = m and title like '%lleva 5 días%'),
     'los avisos a administradores no llegan a miembros');
 
-  monday := ((date_trunc('week', (now() at time zone 'America/Argentina/Buenos_Aires')) + interval '7 days 10 hours')
+  lunes := ((date_trunc('week', (now() at time zone 'America/Argentina/Buenos_Aires')) + interval '7 days 10 hours')
              at time zone 'America/Argentina/Buenos_Aires');
-  perform private.run_scheduled_automations(monday - interval '2 hours');
+  perform private.run_scheduled_automations(lunes - interval '2 hours');
   perform pg_temp.check(not exists (select 1 from public.tasks where board_id = bd and title like 'Revisión semanal%'),
     'una regla programada espera su hora');
-  perform private.run_scheduled_automations(monday);
-  perform private.run_scheduled_automations(monday + interval '30 minutes');
+  perform private.run_scheduled_automations(lunes);
+  perform private.run_scheduled_automations(lunes + interval '30 minutes');
   select count(*) into n from public.tasks where board_id = bd and title like 'Revisión semanal%';
   perform pg_temp.check(n = 1, 'la regla semanal crea un ítem por semana');
-  perform private.run_scheduled_automations(monday + interval '1 day');
+  perform private.run_scheduled_automations(lunes + interval '1 day');
   select count(*) into n from public.tasks where board_id = bd and title like 'Revisión semanal%';
   perform pg_temp.check(n = 1, 'el martes no se repite');
 
