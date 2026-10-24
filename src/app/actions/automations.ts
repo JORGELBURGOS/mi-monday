@@ -10,7 +10,7 @@ import { fail, fromDb, ok, type ActionResult } from "@/lib/action-result";
 import { POSITION_STEP } from "@/lib/constants";
 import { normalizeValue, parseColumn, type CellValue } from "@/lib/columns";
 import { displayName } from "@/lib/format";
-import { ACTION_TYPES, CHECKLIST_EVENTS, CONDITION_FIELDS, CONDITION_OPS, COPY_FIELDS, SAME_BOARD_ACTIONS, TRIGGER_TYPES } from "@/lib/automations";
+import { ACTION_TYPES, CHECKLIST_EVENTS, CONDITION_FIELDS, CONDITION_OPS, COPY_FIELDS, SAME_BOARD_ACTIONS, TRIGGER_TYPES, revertWhen } from "@/lib/automations";
 
 const uuid = z.uuid({ message: "Identificador inválido." });
 const int = (min: number, max: number) => z.number().int().min(min).max(max);
@@ -80,6 +80,7 @@ const automationSchema = z.object({
   copy_fields: z.array(z.enum(COPY_FIELDS)).max(COPY_FIELDS.length),
   column_map: z.array(z.object({ from: uuid, to: uuid })).max(100),
   extra_values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])),
+  revert_on_undo: z.boolean().default(false),
 });
 
 export type AutomationInput = z.input<typeof automationSchema>;
@@ -257,6 +258,10 @@ async function prepare(ctx: Ctx, boardId: string, input: AutomationInput) {
     }
     d.extra_values = clean as Record<string, RuleValue>;
   }
+  // Deshacer al revertirse: solo si la combinación disparador/acción lo admite.
+  d.revert_on_undo =
+    d.revert_on_undo &&
+    revertWhen({ trigger_type: d.trigger_type, trigger_status_id: d.trigger_status_id, trigger_group_id: d.trigger_group_id, tc: d.trigger_config, action_type: d.action_type }) !== null;
   // Sin columnas repetidas en el destino.
   const seen = new Set<string>();
   d.column_map = d.column_map.filter((m) => (seen.has(m.to) ? false : (seen.add(m.to), true)));
@@ -410,5 +415,177 @@ export async function getTaskTraceAction(taskId: string): Promise<ActionResult<{
       created_at: e.created_at,
       board_id: e.board_id,
     })),
+  });
+}
+
+async function namesOf(ctx: Ctx, ids: (string | null | undefined)[]) {
+  const unique = [...new Set(ids.filter((x): x is string => Boolean(x)))];
+  const names = new Map<string, string>();
+  if (unique.length) {
+    const { data: people } = await ctx.supabase.from("profiles").select("id, full_name, email").in("id", unique);
+    for (const p of people ?? []) names.set(p.id, displayName(p));
+  }
+  return names;
+}
+
+function asDetail(v: unknown): Record<string, unknown> {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+/* ------------------------------------------------- historial completo del ítem */
+
+export type HistoryEntry = TraceEvent & {
+  /** Subelemento al que corresponde (null = el propio ítem). */
+  subitem: string | null;
+};
+
+/**
+ * Todo lo que le pasó a un ítem: cambios de campos y columnas, pasos de
+ * checklist, reglas (y reversiones), actualizaciones y sus subelementos.
+ */
+export async function getTaskHistoryAction(taskId: string): Promise<ActionResult<HistoryEntry[]>> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  if (!uuidSchema.safeParse(taskId).success) return fail("Tarea inválida.");
+
+  const { data: subs } = await ctx.supabase.from("tasks").select("id, title").eq("parent_id", taskId).limit(200);
+  const subTitle = new Map((subs ?? []).map((s) => [s.id, s.title]));
+  const ids = [taskId, ...subTitle.keys()];
+
+  const [events, comments] = await Promise.all([
+    ctx.supabase
+      .from("task_events")
+      .select("id, kind, detail, automation_name, actor_id, created_at, board_id, task_id")
+      .in("task_id", ids)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1000),
+    ctx.supabase
+      .from("task_comments")
+      .select("id, task_id, author_id, body, created_at")
+      .in("task_id", ids)
+      .order("created_at", { ascending: false })
+      .limit(300),
+  ]);
+  if (events.error || comments.error) return fromDb(events.error ?? comments.error, "No se pudo cargar el historial.");
+
+  const names = await namesOf(ctx, [...(events.data ?? []).map((e) => e.actor_id), ...(comments.data ?? []).map((c) => c.author_id)]);
+  const out: HistoryEntry[] = [
+    ...(events.data ?? []).map((e) => ({
+      id: e.id,
+      kind: e.kind,
+      detail: asDetail(e.detail),
+      automation_name: e.automation_name,
+      actor_name: e.actor_id ? names.get(e.actor_id) ?? "Ex miembro" : null,
+      created_at: e.created_at,
+      board_id: e.board_id,
+      subitem: e.task_id === taskId ? null : subTitle.get(e.task_id) ?? "Subelemento",
+    })),
+    ...(comments.data ?? []).map((c, i) => ({
+      // Ids negativos para no chocar con los de task_events.
+      id: -(i + 1),
+      kind: "comment",
+      detail: { body: c.body.slice(0, 400) } as Record<string, unknown>,
+      automation_name: null,
+      actor_name: c.author_id ? names.get(c.author_id) ?? "Ex miembro" : null,
+      created_at: c.created_at,
+      board_id: "",
+      subitem: c.task_id === taskId ? null : subTitle.get(c.task_id) ?? "Subelemento",
+    })),
+  ];
+  out.sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
+  return ok(out);
+}
+
+/* ------------------------------------------------- ejecuciones de una regla */
+
+export type RuleRun = {
+  id: number;
+  kind: "run" | "revert";
+  ok: boolean;
+  error: string | null;
+  note: string | null;
+  created_at: string;
+  reverted_at: string | null;
+  task_id: string | null;
+  task_title: string | null;
+  task_board_id: string | null;
+  task_exists: boolean;
+  actor_name: string | null;
+  /** Lo que la regla cambió en el ítem, ya descripto (de su historial). */
+  events: { kind: string; detail: Record<string, unknown> }[];
+};
+
+const RUNS_PAGE = 50;
+
+/** Ejecuciones de una regla, de la más nueva a la más vieja (paginadas por id). */
+export async function getRuleRunsAction(
+  ruleId: string,
+  opts: { before?: number; errorsOnly?: boolean } = {},
+): Promise<ActionResult<{ runs: RuleRun[]; more: boolean }>> {
+  const ctx = await actionContext();
+  if (!ctx) return fail(SESSION_EXPIRED);
+  if (!uuidSchema.safeParse(ruleId).success) return fail("Regla inválida.");
+
+  let q = ctx.supabase
+    .from("automation_runs")
+    .select("id, kind, ok, error, note, created_at, reverted_at, task_id, fire_key, actor_id")
+    .eq("automation_id", ruleId)
+    .order("id", { ascending: false })
+    .limit(RUNS_PAGE + 1);
+  if (opts.before && Number.isInteger(opts.before)) q = q.lt("id", opts.before);
+  if (opts.errorsOnly) q = q.eq("ok", false);
+  const { data, error } = await q;
+  if (error) return fromDb(error, "No se pudieron cargar las ejecuciones.");
+  const more = (data?.length ?? 0) > RUNS_PAGE;
+  // Las marcas internas de reglas programadas no son ejecuciones.
+  const rows = (data ?? []).slice(0, RUNS_PAGE).filter((r) => r.task_id || !r.fire_key?.startsWith("schedule|"));
+
+  const taskIds = [...new Set(rows.map((r) => r.task_id).filter((x): x is string => Boolean(x)))];
+  const [tasks, events, names] = await Promise.all([
+    taskIds.length ? ctx.supabase.from("tasks").select("id, title, board_id").in("id", taskIds) : Promise.resolve({ data: [] as { id: string; title: string; board_id: string }[] }),
+    taskIds.length
+      ? ctx.supabase
+          .from("task_events")
+          .select("task_id, kind, detail, created_at, automation_name")
+          .eq("automation_id", ruleId)
+          .in("task_id", taskIds)
+          .gte("created_at", rows[rows.length - 1]?.created_at ?? new Date(0).toISOString())
+          .order("id")
+          .limit(2000)
+      : Promise.resolve({ data: [] as { task_id: string; kind: string; detail: unknown; created_at: string; automation_name: string | null }[] }),
+    namesOf(ctx, rows.map((r) => r.actor_id)),
+  ]);
+  const taskById = new Map((tasks.data ?? []).map((t) => [t.id, t]));
+  // Lo que cambió la regla quedó en el historial del ítem en la misma transacción (misma hora).
+  const eventsOf = new Map<string, { kind: string; detail: Record<string, unknown> }[]>();
+  for (const e of events.data ?? []) {
+    const key = `${e.task_id}|${new Date(e.created_at).getTime()}|${e.automation_name?.endsWith("(reversión)") ? "revert" : "run"}`;
+    const list = eventsOf.get(key) ?? [];
+    list.push({ kind: e.kind, detail: asDetail(e.detail) });
+    eventsOf.set(key, list);
+  }
+
+  return ok({
+    more,
+    runs: rows.map((r) => {
+      const t = r.task_id ? taskById.get(r.task_id) : undefined;
+      const evs = eventsOf.get(`${r.task_id}|${new Date(r.created_at).getTime()}|${r.kind === "revert" ? "revert" : "run"}`) ?? [];
+      return {
+        id: r.id,
+        kind: r.kind === "revert" ? "revert" : "run",
+        ok: r.ok,
+        error: r.error,
+        note: r.note,
+        created_at: r.created_at,
+        reverted_at: r.reverted_at,
+        task_id: r.task_id,
+        task_title: t?.title ?? null,
+        task_board_id: t?.board_id ?? null,
+        task_exists: Boolean(t),
+        actor_name: r.actor_id ? names.get(r.actor_id) ?? "Ex miembro" : null,
+        events: evs,
+      };
+    }),
   });
 }

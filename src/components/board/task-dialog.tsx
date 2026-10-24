@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import {
   addCommentAction,
   deleteCommentAction,
@@ -27,6 +27,7 @@ import { cn } from "@/lib/cn";
 import { ComputedCell, CustomValueInput } from "./custom-cell";
 import { MirrorCell } from "./rich-cells";
 import { TaskTrace } from "./task-trace";
+import { TaskHistory } from "./task-history";
 import { ChecklistEditor } from "./checklist-editor";
 import { useCellContext } from "./cell-context";
 import type { Group, Member, Status, Task } from "./types";
@@ -97,6 +98,7 @@ export function TaskDialog({
   const [tab, setTab] = useState<string>("comments");
   const ctx = useCellContext();
   const checklistCols = columns.filter((c) => c.kind === "checklist");
+  const historyLookup = useMemo(() => ({ columns, members }), [columns, members]);
   const [commentCount, setCommentCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -216,6 +218,7 @@ export function TaskDialog({
                     const p = checklistProgress(values[c.id] ?? undefined);
                     return [`ck:${c.id}`, `${c.name}${p.total ? ` ${p.done}/${p.total}` : ""}`] as [string, string];
                   }),
+                  ["history", "Historial"],
                   ["trace", "Recorrido"],
                 ] as [string, string][]
               ).map(([key, label]) => (
@@ -264,6 +267,8 @@ export function TaskDialog({
                 })()
               ) : task.id.startsWith("tmp-") ? (
                 <p className="text-sm text-muted">Guardando el ítem…</p>
+              ) : tab === "history" ? (
+                <TaskHistory taskId={task.id} lookup={historyLookup} reloadKey={`${task.updated_at}|${commentCount}`} />
               ) : (
                 <TaskTrace taskId={task.id} boardId={task.board_id} onOpenTask={onOpenTask} />
               )}

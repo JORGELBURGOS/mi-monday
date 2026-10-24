@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getTaskTraceAction, type TraceEvent, type TraceNode } from "@/app/actions/automations";
 import { cn } from "@/lib/cn";
-import { PRIORITY_BY_VALUE, asColor, type Priority } from "@/lib/constants";
-import { formatDateTime, formatDueDate, relativeTime, todayIsoLocal } from "@/lib/format";
+import { asColor } from "@/lib/constants";
+import { relativeTime } from "@/lib/format";
 import { Chip } from "@/components/ui/misc";
 import { FormAlert } from "@/components/ui/form";
 
@@ -107,41 +107,7 @@ export function TaskTrace({
         </section>
       )}
 
-      <section aria-labelledby="trace-history">
-        <h3 id="trace-history" className="mb-2 text-sm font-bold">
-          Historial
-        </h3>
-        {data.events.length === 0 ? (
-          <p className="text-sm text-muted">Sin movimientos registrados todavía.</p>
-        ) : (
-          <ol className="space-y-2.5">
-            {[...data.events].reverse().map((e) => (
-              <li key={e.id} className="flex gap-3 text-sm">
-                <span
-                  aria-hidden
-                  className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", e.automation_name ? "bg-accent" : "bg-line-strong")}
-                />
-                <div className="min-w-0">
-                  <p className="break-words">{describeEvent(e)}</p>
-                  <p className="text-xs text-muted">
-                    {e.automation_name ? (
-                      <>
-                        Regla «{e.automation_name}»{e.actor_name ? ` · disparada por ${e.actor_name}` : ""}
-                      </>
-                    ) : (
-                      e.actor_name ?? "Sistema"
-                    )}{" "}
-                    ·{" "}
-                    <time dateTime={e.created_at} title={formatDateTime(e.created_at)}>
-                      {relativeTime(e.created_at)}
-                    </time>
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      <p className="text-xs text-muted">El detalle de cada cambio está en la pestaña «Historial».</p>
     </div>
   );
 }
@@ -197,44 +163,6 @@ function ChainNode({
 
 function str(v: unknown) {
   return typeof v === "string" && v ? v : null;
-}
-
-function describeEvent(e: TraceEvent): string {
-  const d = e.detail;
-  switch (e.kind) {
-    case "created": {
-      const where = [str(d.board), str(d.group)].filter(Boolean).join(" › ");
-      return str(d.from_board) ? `Llegó como copia desde «${str(d.from_board)}» a ${where}` : `Se creó en ${where}`;
-    }
-    case "status_changed":
-      return `Estado: ${str(d.from) ?? "sin estado"} → ${str(d.to) ?? "sin estado"}`;
-    case "group_changed":
-      return `Carpeta: ${str(d.from) ?? "—"} → ${str(d.to) ?? "—"}`;
-    case "moved":
-      return `Viajó de «${str(d.from_board) ?? "—"}» a «${str(d.to_board) ?? "—"}»${str(d.group) ? ` › ${str(d.group)}` : ""}`;
-    case "copied_to":
-      return `Se copió a «${str(d.board) ?? "—"}»${str(d.group) ? ` › ${str(d.group)}` : ""}`;
-    case "assignee_changed":
-      return str(d.to) ? `Responsable: ${str(d.to)}` : "Se quitó el responsable";
-    case "due_changed":
-      return str(d.to) ? `Vencimiento: ${formatDueDate(str(d.to)!, todayIsoLocal())}` : "Se quitó el vencimiento";
-    case "priority_changed": {
-      const p = PRIORITY_BY_VALUE[str(d.to) as Priority];
-      return `Prioridad: ${p?.label ?? str(d.to) ?? "—"}`;
-    }
-    case "renamed":
-      return `Título: «${str(d.from) ?? ""}» → «${str(d.to) ?? ""}»`;
-    case "deleted":
-      return "Se eliminó";
-    case "automation_limit":
-      return "Una cadena de reglas se detuvo para evitar un ciclo infinito";
-    case "checklist_item":
-      return `${d.done ? "Tildó" : "Destildó"} «${str(d.item) ?? "paso"}»${str(d.column) ? ` · ${str(d.column)}` : ""}`;
-    case "checklist_completed":
-      return `Checklist completo${str(d.column) ? ` «${str(d.column)}»` : ""}${typeof d.total === "number" ? ` (${d.total} pasos)` : ""}`;
-    default:
-      return e.kind;
-  }
 }
 
 type Stage = { label: string; color: string | null; ms: number; current: boolean };

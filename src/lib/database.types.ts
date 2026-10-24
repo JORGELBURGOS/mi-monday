@@ -19,7 +19,12 @@ export type Database = {
     Tables: {
       automation_runs: {
         Row: {
+          actor_id: string | null
           automation_id: string
+          change: Json | null
+          kind: string
+          note: string | null
+          reverted_at: string | null
           created_at: string
           error: string | null
           fire_key: string | null
@@ -28,7 +33,12 @@ export type Database = {
           task_id: string | null
         }
         Insert: {
+          actor_id?: string | null
           automation_id: string
+          change?: Json | null
+          kind?: string
+          note?: string | null
+          reverted_at?: string | null
           created_at?: string
           error?: string | null
           fire_key?: string | null
@@ -37,7 +47,12 @@ export type Database = {
           task_id?: string | null
         }
         Update: {
+          actor_id?: string | null
           automation_id?: string
+          change?: Json | null
+          kind?: string
+          note?: string | null
+          reverted_at?: string | null
           created_at?: string
           error?: string | null
           fire_key?: string | null
@@ -68,6 +83,7 @@ export type Database = {
           extra_values: Json
           id: string
           is_active: boolean
+          revert_on_undo: boolean
           legacy_action_type: string
           legacy_trigger_type: string
           link_direction: string | null
@@ -95,6 +111,7 @@ export type Database = {
           extra_values?: Json
           id?: string
           is_active?: boolean
+          revert_on_undo?: boolean
           legacy_action_type?: string
           legacy_trigger_type?: string
           link_direction?: string | null
@@ -122,6 +139,7 @@ export type Database = {
           extra_values?: Json
           id?: string
           is_active?: boolean
+          revert_on_undo?: boolean
           legacy_action_type?: string
           legacy_trigger_type?: string
           link_direction?: string | null

@@ -20,9 +20,10 @@ import { formatDateTime, relativeTime } from "@/lib/format";
 import { readValues } from "@/lib/columns";
 import { COPY_FIELD_LABELS, TIME_TRIGGERS, describeAutomation, readConditions, type CopyField, type TriggerType } from "@/lib/automations";
 import type { Automation, FlowBoard, Member } from "@/lib/data";
+import { RuleRunsDialog } from "./rule-runs";
 import { RECIPES, RuleEditor, draftFromRule, emptyDraft, suggestSources, type Draft } from "./rule-editor";
 
-export type RunStats = Record<string, { count: number; last: string | null; errors: number; lastError: string | null; lastErrorAt: string | null }>;
+export type RunStats = Record<string, { count: number; reverts: number; last: string | null; errors: number; lastError: string | null; lastErrorAt: string | null }>;
 
 export function AutomationManager({
   boardId,
@@ -75,6 +76,7 @@ export function AutomationManager({
     </Button>
   );
   const [deleting, setDeleting] = useState<Automation | null>(null);
+  const [viewingRuns, setViewingRuns] = useState<Automation | null>(null);
   const current = boards.find((b) => b.id === boardId)!;
   const targets = boards.filter((b) => b.canManage && !b.is_archived);
 
@@ -181,7 +183,15 @@ export function AutomationManager({
                             )}
                           </>
                         : "Todavía no se ejecutó"}
+                      {st?.reverts ? ` · ${st.reverts} ${st.reverts === 1 ? "reversión" : "reversiones"}` : ""}
+                      {" "}·{" "}
+                      <button type="button" onClick={() => setViewingRuns(r)} className="font-semibold text-accent hover:underline">
+                        Ver ejecuciones
+                      </button>
                     </p>
+                    {r.revert_on_undo && (
+                      <p className="mt-1 text-xs font-medium text-warning">↩ Se deshace sola si se revierte lo que la disparó</p>
+                    )}
                     {st?.lastError && (
                       <p className="mt-1 rounded-lg bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
                         Falló {st.errors === 1 ? "1 vez" : `${st.errors} veces`}. Último error ({st.lastErrorAt ? relativeTime(st.lastErrorAt) : ""}):{" "}
@@ -275,6 +285,8 @@ export function AutomationManager({
           </form>
         </Dialog>
       )}
+
+      {viewingRuns && <RuleRunsDialog rule={viewingRuns} board={current} members={members} onClose={() => setViewingRuns(null)} />}
 
       <ConfirmDialog
         open={Boolean(deleting)}

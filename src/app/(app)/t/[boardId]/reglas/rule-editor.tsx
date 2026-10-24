@@ -22,6 +22,7 @@ import {
   readActionConfig,
   readConditions,
   readTriggerConfig,
+  revertWhen,
   type ActionConfig,
   type ActionMode,
   type Condition,
@@ -52,10 +53,13 @@ export type Draft = {
   sources: Record<string, string>;
   fixed: Record<string, CellValue | null>;
   ac: ActionConfig;
+  /** Deshacer la acción si se revierte lo que disparó la regla. */
+  revert: boolean;
 };
 
 const BASIC_FIELDS: CopyField[] = ["description", "priority", "assignee", "due_date"];
 const CHAIN: ActionMode[] = ["copy", "move", "origin", "copies"];
+const linkedMode = (m: ActionMode) => m === "origin" || m === "copies";
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 /** Sugiere copiar las columnas que tienen el mismo nombre y tipo en ambos tableros. */
@@ -87,6 +91,7 @@ export function emptyDraft(source: FlowBoard, targets: FlowBoard[]): Draft {
     sources: suggestSources(source, firstOther),
     fixed: {},
     ac: {},
+    revert: false,
   };
 }
 
@@ -111,6 +116,7 @@ export function draftFromRule(rule: Automation): Draft {
     sources,
     fixed,
     ac: readActionConfig(rule),
+    revert: rule.revert_on_undo,
   };
 }
 
@@ -266,6 +272,8 @@ export function RuleEditor({
   const setTc = (patch: Partial<TriggerConfig>) => setD((x) => ({ ...x, tc: { ...x.tc, ...patch } }));
   const setAc = (patch: Partial<ActionConfig>) => setD((x) => ({ ...x, ac: { ...x.ac, ...patch } }));
   const isTime = TIME_TRIGGERS.includes(d.trigger_type);
+  const actionType = linkedMode(d.mode) ? "update_linked" : d.mode;
+  const revertText = revertWhen({ trigger_type: d.trigger_type, trigger_status_id: d.trigger_status_id, trigger_group_id: d.trigger_group_id, tc: d.tc, action_type: actionType });
   const actionHelp = ACTION_GROUPS.flatMap((g) => g.items).find((i) => i.value === d.mode)?.help;
 
   const autoName = useMemo(() => {
@@ -331,6 +339,7 @@ export function RuleEditor({
       copy_fields: d.mode === "copy" ? [...d.copy_fields, ...(d.target_status === "same" ? (["status"] as CopyField[]) : [])] : [],
       column_map,
       extra_values: extra_values as Record<string, string | number | boolean | string[]>,
+      revert_on_undo: Boolean(revertText) && d.revert,
     };
     startSaving(async () => {
       const err = await onSubmit(input);
@@ -414,6 +423,23 @@ export function RuleEditor({
               <ActionDetails uid={uid} d={d} source={source} target={target} targets={targets} members={members} setAc={setAc} changeTarget={changeTarget} />
             )}
           </div>
+        </Step>
+
+        {/* 4 · Deshacer */}
+        <Step n={4} title="Si se revierte">
+          {revertText ? (
+            <label className="flex items-start gap-2.5 text-sm">
+              <input type="checkbox" checked={d.revert} onChange={(e) => set("revert", e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
+              <span>
+                <span className="font-semibold">Deshacer automáticamente</span>: {revertText}, el ítem vuelve a como estaba antes de la regla.
+                <span className="mt-0.5 block text-xs text-muted">Si mientras tanto alguien lo cambió a mano, se respeta ese cambio. Queda registrado en el historial y en las ejecuciones.</span>
+              </span>
+            </label>
+          ) : (
+            <p className="text-sm text-muted">
+              Esta combinación no se puede deshacer sola. Funciona con acciones sobre el propio ítem (estado, carpeta, prioridad, responsable, vencimiento o columna) y disparadores concretos: un checklist, un estado, una carpeta, una persona, una prioridad o un valor de columna.
+            </p>
+          )}
         </Step>
 
         <Field id={`${uid}-name`} label="Nombre de la regla" hint="Opcional">

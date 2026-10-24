@@ -122,6 +122,49 @@ export const SAME_BOARD_ACTIONS: ActionType[] = [
   "add_comment",
 ];
 
+/** Acciones que cambian un campo del propio ítem y por eso se pueden deshacer. */
+export const REVERTIBLE_ACTIONS: ActionType[] = ["set_status", "set_group", "set_priority", "set_assignee", "set_due_date", "set_column"];
+
+/**
+ * Si la regla admite "deshacer al revertirse", describe cuándo se deshace
+ * (por ejemplo "si se destildan todos los pasos"). null = no se puede.
+ */
+export function revertWhen(r: {
+  trigger_type: string;
+  trigger_status_id?: string | null;
+  trigger_group_id?: string | null;
+  tc: TriggerConfig;
+  action_type: string;
+}): string | null {
+  if (!(REVERTIBLE_ACTIONS as string[]).includes(r.action_type)) return null;
+  const tc = r.tc;
+  switch (r.trigger_type) {
+    case "checklist_changed":
+      switch (tc.event) {
+        case "step_checked":
+          return "si se destilda ese paso";
+        case "completed":
+          return "si el checklist deja de estar completo";
+        case "percent":
+          return `si el avance baja del ${tc.percent ?? 50}%`;
+        default:
+          return "si se destildan todos los pasos";
+      }
+    case "status_changed":
+      return r.trigger_status_id ? "si el ítem sale de ese estado" : null;
+    case "group_changed":
+      return r.trigger_group_id ? "si el ítem sale de esa carpeta" : null;
+    case "assignee_changed":
+      return tc.user_id ? "si deja de estar asignado a esa persona" : null;
+    case "priority_changed":
+      return tc.priority ? "si la prioridad cambia a otra" : null;
+    case "column_changed":
+      return tc.value ? "si la columna deja de tener ese valor" : null;
+    default:
+      return null;
+  }
+}
+
 export type TriggerConfig = {
   from_status_id?: string;
   user_id?: string;

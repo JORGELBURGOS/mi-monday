@@ -32,15 +32,16 @@ export default async function BoardRulesPage({ params }: { params: Promise<{ boa
   if (rules.length > 0) {
     const { data: runs } = await supabase
       .from("automation_runs")
-      .select("automation_id, ok, error, created_at, task_id, fire_key")
+      .select("automation_id, ok, error, created_at, task_id, fire_key, kind")
       .in("automation_id", rules.map((r) => r.id))
       .order("created_at", { ascending: false })
       .limit(1000);
     for (const run of runs ?? []) {
       // Las marcas internas de reglas programadas no cuentan como ejecución.
       if (!run.task_id && run.fire_key?.startsWith("schedule|")) continue;
-      const st = (stats[run.automation_id] ??= { count: 0, last: null, errors: 0, lastError: null, lastErrorAt: null });
-      st.count += 1;
+      const st = (stats[run.automation_id] ??= { count: 0, reverts: 0, last: null, errors: 0, lastError: null, lastErrorAt: null });
+      if (run.kind === "revert") st.reverts += 1;
+      else st.count += 1;
       st.last ??= run.created_at;
       if (!run.ok) {
         st.errors += 1;

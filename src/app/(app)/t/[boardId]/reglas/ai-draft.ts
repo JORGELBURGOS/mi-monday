@@ -105,5 +105,6 @@ export function draftFromProposal(
     sources: chain ? suggestSources(source, target) : {},
     fixed: {},
     ac,
+    revert: raw.revert_on_undo === true,
   };
 }

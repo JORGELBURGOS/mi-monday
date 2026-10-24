@@ -85,6 +85,12 @@ ACCIONES (action_type) y action_config:
 - "create_item": action_config.title, y opcionales group_id, status_id, priority, due_days, assignee_id. target_board_id = tablero donde se crea.
 - "copy" | "move": copiar / mover el ítem a target_board_id, con target_group_id y target_status_id opcionales. copy_fields opcional: ["description","priority","assignee","due_date","status"].
 - "update_linked": cambia el ítem vinculado (link_direction "origin" = el original del que vino esta copia, "copies" = sus copias) a target_status_id y/o target_group_id del tablero target_board_id.
+
+REVERSIÓN (revert_on_undo, true/false): si es true, cuando se deshace lo que disparó la regla el ítem vuelve al valor anterior.
+Solo sirve con acciones set_status, set_group, set_priority, set_assignee, set_due_date o set_column y con disparadores concretos:
+checklist_changed (al destildar: "cualquier paso"/"primer paso" se deshace cuando no queda ningún paso tildado), status_changed con trigger_status_id
+(cuando el ítem sale de ese estado), group_changed con trigger_group_id, assignee_changed con user_id, priority_changed con priority o column_changed con value.
+Usalo cuando la persona diga "si se desmarca vuelve atrás", "revertir", "deshacer", "volver al estado anterior" o similar.
 `;
 
 type Ctx = {
@@ -108,7 +114,7 @@ ${JSON.stringify({ estados: ctx.statuses, carpetas: ctx.groups, columnas: ctx.co
 
 Respondé SOLO un objeto JSON, sin texto extra, con UNA de estas dos formas:
 1) Si se puede armar la regla:
-{"ok": true, "rule": {"name": "nombre corto (máx 80)", "trigger_type": "...", "trigger_status_id": null, "trigger_group_id": null, "trigger_config": {}, "conditions": [], "action_type": "...", "action_config": {}, "target_board_id": "${ctx.board.id}", "target_group_id": null, "target_status_id": null, "link_direction": null, "copy_fields": []}, "explanation": "una oración en español rioplatense explicando qué hace"}
+{"ok": true, "rule": {"name": "nombre corto (máx 80)", "trigger_type": "...", "trigger_status_id": null, "trigger_group_id": null, "trigger_config": {}, "conditions": [], "action_type": "...", "action_config": {}, "target_board_id": "${ctx.board.id}", "target_group_id": null, "target_status_id": null, "link_direction": null, "copy_fields": [], "revert_on_undo": false}, "explanation": "una oración en español rioplatense explicando qué hace"}
 2) Si falta un dato o el pedido es ambiguo (por ejemplo, hay dos estados parecidos o una persona que no existe) o el motor no puede hacerlo:
 {"ok": false, "question": "pregunta corta en español rioplatense para aclarar, o explicación de por qué no se puede"}
 
