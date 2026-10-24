@@ -561,3 +561,23 @@ export function runFormula(src: string, ctx: EvalContext): FormulaResult {
 }
 
 export const FUNCTION_GROUPS = ["Números", "Texto", "Lógica", "Fechas"] as const;
+
+const normRef = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
+
+/**
+ * Cambia las referencias {Viejo} (y {Viejo#parte}) por {Nuevo} en una fórmula.
+ * Se usa al renombrar una columna para que las fórmulas que la usan no se rompan.
+ */
+export function renameFormulaRef(src: string, oldName: string, newName: string): string {
+  const target = normRef(oldName);
+  return src.replace(/\{([^}]+)\}/g, (whole, inner: string) => {
+    const [name, ...part] = inner.split("#");
+    if (normRef(name) !== target) return whole;
+    return `{${[newName, ...part].join("#")}}`;
+  });
+}

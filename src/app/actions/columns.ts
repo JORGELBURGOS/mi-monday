@@ -25,6 +25,7 @@ import {
 } from "@/lib/columns";
 import { parseBoardSettings, orderedKeys, type ColumnKey } from "@/lib/board-settings";
 import type { Json } from "@/lib/database.types";
+import { renameFormulaRef } from "@/lib/formula";
 
 type Ctx = NonNullable<Awaited<ReturnType<typeof actionContext>>>;
 
@@ -40,6 +41,28 @@ async function placeInOrder(ctx: Ctx, boardId: string, key: ColumnKey, afterKey?
   const at = afterKey ? order.indexOf(afterKey as ColumnKey) : -1;
   order.splice(at >= 0 ? at + 1 : order.length, 0, key);
   await ctx.supabase.from("boards").update({ settings: { ...settings, order } }).eq("id", boardId);
+}
+
+/** Columna de fórmula "Avance de …" que muestra el % del checklist, a su derecha. */
+async function addChecklistProgress(ctx: Ctx, boardId: string, checklistId: string, checklistName: string, position: number) {
+  const { data: cols } = await ctx.supabase.from("board_columns").select("name").eq("board_id", boardId);
+  const taken = new Set((cols ?? []).map((c) => c.name.trim().toLowerCase()));
+  const base = `Avance de ${checklistName}`.slice(0, 56);
+  let name = base;
+  for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} ${n}`;
+  const { data } = await ctx.supabase
+    .from("board_columns")
+    .insert({
+      board_id: boardId,
+      name,
+      kind: "formula",
+      options: [],
+      settings: { formula: `{${checklistName}}`, unit: "%", unitPosition: "right", decimals: 0, summary: "avg", description: `Porcentaje de pasos tildados de «${checklistName}»` },
+      position: position + 1,
+    })
+    .select("id")
+    .single();
+  if (data) await placeInOrder(ctx, boardId, `c:${data.id}`, `c:${checklistId}`);
 }
 
 export async function createColumnAction(
@@ -77,6 +100,8 @@ export async function createColumnAction(
     .single();
   if (error || !data) return fromDb(error, "No se pudo crear la columna.");
   await placeInOrder(ctx, boardId, `c:${data.id}`, afterKey);
+  // Todo checklist viene con su columna de avance (% de pasos tildados) al lado.
+  if (parsed.data.kind === "checklist") await addChecklistProgress(ctx, boardId, data.id, parsed.data.name, (last?.position ?? 0) + POSITION_STEP);
   refresh();
   return ok({ id: data.id });
 }
@@ -125,6 +150,16 @@ export async function updateColumnAction(
   if (!data?.length) return fail("Solo quien administra el tablero puede editar sus columnas.");
 
   // De desplegable múltiple a estado: queda la primera opción de cada ítem.
+  // Renombrar: las fórmulas del tablero que usan esta columna siguen andando.
+  if (patch.name && patch.name !== column.name) {
+    const { data: formulas } = await ctx.supabase.from("board_columns").select("id, settings").eq("board_id", column.board_id).eq("kind", "formula");
+    for (const f of formulas ?? []) {
+      const settings = (f.settings && typeof f.settings === "object" && !Array.isArray(f.settings) ? f.settings : {}) as Record<string, Json>;
+      const src = typeof settings.formula === "string" ? settings.formula : "";
+      const next = src ? renameFormulaRef(src, column.name, patch.name) : src;
+      if (next !== src) await ctx.supabase.from("board_columns").update({ settings: { ...settings, formula: next } }).eq("id", f.id);
+    }
+  }
   if (patch.kind && column.kind === "tags" && kind === "list") {
     const { data: tasks } = await ctx.supabase.from("tasks").select("id, custom_values").eq("board_id", column.board_id);
     for (const t of tasks ?? []) {
