@@ -73,13 +73,25 @@ export function TaskDialog({
   endPosition: (groupId: string) => number;
 }) {
   const uid = useId();
-  const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description ?? "");
-  const [statusId, setStatusId] = useState(task.status_id ?? "");
-  const [priority, setPriority] = useState<Priority>(task.priority);
-  const [assigneeId, setAssigneeId] = useState(task.assignee_id ?? "");
-  const [dueDate, setDueDate] = useState(task.due_date ?? "");
-  const [groupId, setGroupId] = useState(task.group_id);
+  // Solo se guardan los campos que la persona tocó: si mientras tanto una regla
+  // cambió el estado (por ejemplo, al tildar un paso del checklist), no se pisa.
+  type Edits = Partial<{ title: string; description: string; status_id: string; priority: Priority; assignee_id: string; due_date: string; group_id: string }>;
+  const [edits, setEdits] = useState<Edits>({});
+  const edit = <K extends keyof Edits>(key: K) => (v: NonNullable<Edits[K]>) => setEdits((e) => ({ ...e, [key]: v }));
+  const title = edits.title ?? task.title;
+  const description = edits.description ?? task.description ?? "";
+  const statusId = edits.status_id ?? task.status_id ?? "";
+  const priority = edits.priority ?? task.priority;
+  const assigneeId = edits.assignee_id ?? task.assignee_id ?? "";
+  const dueDate = edits.due_date ?? task.due_date ?? "";
+  const groupId = edits.group_id ?? task.group_id;
+  const setTitle = edit("title");
+  const setDescription = edit("description");
+  const setStatusId = edit("status_id");
+  const setPriority = edit("priority");
+  const setAssigneeId = edit("assignee_id");
+  const setDueDate = edit("due_date");
+  const setGroupId = edit("group_id");
   const initialValues = readValues(task.custom_values);
   const [values, setValues] = useState<Record<string, CellValue | null>>(initialValues);
   const [tab, setTab] = useState<string>("comments");
@@ -116,17 +128,19 @@ export function TaskDialog({
     setTitleError(null);
     setError(null);
     startSaving(async () => {
-      const res = await updateTaskAction(task.id, {
-        title: parsedTitle.data,
-        description: description.trim() ? description : null,
-        status_id: statusId || null,
-        priority,
-        assignee_id: assigneeId || null,
-        due_date: dueDate || null,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      const patch: Parameters<typeof updateTaskAction>[1] = {};
+      if (edits.title !== undefined && parsedTitle.data !== task.title) patch.title = parsedTitle.data;
+      if (edits.description !== undefined && (description.trim() || null) !== (task.description?.trim() || null)) patch.description = description.trim() ? description : null;
+      if (edits.status_id !== undefined && (statusId || null) !== task.status_id) patch.status_id = statusId || null;
+      if (edits.priority !== undefined && priority !== task.priority) patch.priority = priority;
+      if (edits.assignee_id !== undefined && (assigneeId || null) !== task.assignee_id) patch.assignee_id = assigneeId || null;
+      if (edits.due_date !== undefined && (dueDate || null) !== task.due_date) patch.due_date = dueDate || null;
+      if (Object.keys(patch).length > 0) {
+        const res = await updateTaskAction(task.id, patch);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
       }
       const changed = changedValues();
       if (changed.length > 0) {
