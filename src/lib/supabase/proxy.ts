@@ -16,7 +16,7 @@ function isPublicPath(pathname: string) {
  * el servidor (requireUser) y en la base de datos (RLS).
  */
 /** Direcciones anteriores de la app: redirigen a la actual. */
-const LEGACY_HOSTS = new Set(["mi-monday.vercel.app", "vetta-trazabilidad.vercel.app"]);
+const LEGACY_HOSTS = new Set(["vetta-trazabilidad.vercel.app"]);
 const CANONICAL_HOST = "vettaapp.vercel.app";
 
 export async function updateSession(request: NextRequest) {
