@@ -22,6 +22,7 @@ import {
   VALUE_OPS,
   WIDGET_LABELS,
   WIDGET_TYPES,
+  listColumns,
   widgetSchema,
   type Condition,
   type MetricOp,
@@ -471,11 +472,14 @@ function OrderList({
   onChange,
   onRemove,
   label,
+  fixed = [],
 }: {
   items: { key: string; label: string }[];
   onChange: (keys: string[]) => void;
   onRemove?: (key: string) => void;
   label: string;
+  /** Claves que no se pueden quitar (solo mover). */
+  fixed?: string[];
 }) {
   const [drag, setDrag] = useState<number | null>(null);
   const keys = items.map((i) => i.key);
@@ -516,7 +520,8 @@ function OrderList({
           <button type="button" aria-label={`Bajar ${it.label}`} disabled={i === items.length - 1} onClick={() => move(i, i + 1)} className="rounded px-1 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30">
             ↓
           </button>
-          {onRemove && (
+          {onRemove && fixed.includes(it.key) && <span className="w-[18px]" aria-hidden />}
+          {onRemove && !fixed.includes(it.key) && (
             <button type="button" aria-label={`Quitar ${it.label}`} onClick={() => onRemove(it.key)} className="rounded p-0.5 text-muted hover:text-danger">
               <IconX size={12} />
             </button>
@@ -578,19 +583,23 @@ function CategoryOrder({
 /** Columnas de la lista de elementos: elegir, ordenar y definir cómo se ordenan las filas. */
 function ListColumnsEditor({ uid, ds, w, setOpt }: { uid: string; ds: Dataset; w: Widget; setOpt: (p: Partial<Widget["options"]>) => void }) {
   const catalog = useMemo(() => [...fieldCatalog(ds), ...numberFields(ds).filter((f) => f.colKind !== "checklist")], [ds]);
-  const label = (k: string) => catalog.find((f) => f.key === k)?.label ?? "Columna";
-  const fields = w.options.fields ?? [];
+  const label = (k: string) => (k === "title" ? "Elemento (nombre)" : catalog.find((f) => f.key === k)?.label ?? "Columna");
+  const fields = listColumns(w);
   const rest = catalog.filter((f) => !fields.includes(f.key));
   const orderBy = w.options.orderBy ?? { field: "due", dir: "asc" as const };
   return (
     <div className="space-y-3">
       <div>
         <p className="mb-1.5 text-sm font-semibold">Columnas (en este orden)</p>
-        <p className="mb-1.5 text-[11px] text-subtle">«Elemento» va siempre primero. Arrastrá o usá las flechas para ordenar las demás.</p>
-        {fields.length > 0 && (
-          <OrderList label="Columnas de la lista" items={fields.map((k) => ({ key: k, label: label(k) }))} onChange={(next) => setOpt({ fields: next })} onRemove={(k) => setOpt({ fields: fields.filter((x) => x !== k) })} />
-        )}
-        {fields.length < 8 && rest.length > 0 && (
+        <p className="mb-1.5 text-[11px] text-subtle">Arrastrá o usá las flechas para ordenarlas, incluida «Elemento».</p>
+        <OrderList
+          label="Columnas de la lista"
+          items={fields.map((k) => ({ key: k, label: label(k) }))}
+          fixed={["title"]}
+          onChange={(next) => setOpt({ fields: next })}
+          onRemove={(k) => setOpt({ fields: fields.filter((x) => x !== k) })}
+        />
+        {fields.length < 10 && rest.length > 0 && (
           <Select
             aria-label="Agregar columna"
             className="mt-2 !h-8 text-xs"

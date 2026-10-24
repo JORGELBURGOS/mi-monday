@@ -20,7 +20,7 @@ import {
   type GlobalFilters,
   type SeriesResult,
 } from "@/lib/dashboard-engine";
-import { DATE_BASE_FIELDS, HEIGHTS, MAX_ROWS, WIDTHS, rowsOf, type Widget } from "@/lib/dashboards";
+import { DATE_BASE_FIELDS, HEIGHTS, MAX_ROWS, WIDTHS, listColumns, rowsOf, type Widget } from "@/lib/dashboards";
 import { BarChart, Legend, LineChart, PieChart, ProgressRows, SeriesTable, type Fmt } from "./charts";
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -31,6 +31,7 @@ const shortDate = (iso: string) => {
 
 /** Texto de un campo para un elemento (para listas y para el detalle). */
 export function fieldText(ds: Dataset, t: DsTask, field: string): string {
+  if (field === "title") return t.title;
   const isDate = DATE_BASE_FIELDS.includes(field) || /\|(date|timeline)$/.test(field);
   if (isDate) {
     const d = dateOf(ds, t, field);
@@ -351,32 +352,34 @@ function ListBody({
   sort: { field: string; dir: "asc" | "desc" };
   onSort: (field: string) => void;
 }) {
-  const fields = w.options.fields?.length ? w.options.fields : ["board", "assignee", "due"];
+  const fields = listColumns(w);
   if (!tasks.length) return <p className="flex h-full items-center justify-center text-sm text-muted">No hay elementos con estos filtros.</p>;
   return (
     <div className="h-full overflow-auto">
       <table className="w-full border-separate border-spacing-0 text-xs">
         <thead className="sticky top-0 bg-surface">
           <tr>
-            <SortHeader label="Elemento" field="title" sort={sort} onSort={onSort} />
             {fields.map((f) => (
-              <SortHeader key={f} label={fieldLabel(ds, f)} field={f} sort={sort} onSort={onSort} />
+              <SortHeader key={f} label={f === "title" ? "Elemento" : fieldLabel(ds, f)} field={f} sort={sort} onSort={onSort} />
             ))}
           </tr>
         </thead>
         <tbody>
           {tasks.map((t) => (
             <tr key={t.id} className="hover:bg-surface-2">
-              <td className="max-w-64 truncate border-b border-line px-2 py-1.5">
-                <Link href={`/t/${t.board_id}?item=${t.parent_id ?? t.id}`} prefetch={false} className={cn("font-medium hover:underline", isDone(ds, t) && "text-muted line-through")}>
-                  {t.title}
-                </Link>
-              </td>
-              {fields.map((f) => (
+              {fields.map((f) =>
+                f === "title" ? (
+                  <td key={f} className="max-w-64 truncate border-b border-line px-2 py-1.5">
+                    <Link href={`/t/${t.board_id}?item=${t.parent_id ?? t.id}`} prefetch={false} className={cn("font-medium hover:underline", isDone(ds, t) && "text-muted line-through")}>
+                      {t.title}
+                    </Link>
+                  </td>
+                ) : (
                 <td key={f} className={cn("max-w-40 truncate border-b border-line px-2 py-1.5 text-muted", f === "due" && t.due_date && t.due_date < ds.today && !isDone(ds, t) && "font-semibold text-danger")}>
                   {fieldText(ds, t, f)}
                 </td>
-              ))}
+                ),
+              )}
             </tr>
           ))}
         </tbody>
@@ -426,8 +429,8 @@ function downloadCsv(ds: Dataset, w: Widget, r: NonNullable<ReturnType<typeof co
   let rows: unknown[][] = [];
   if (r.kind === "kpi") rows = [["Indicador", "Valor"], [w.title || "KPI", r.value ?? ""]];
   else if (r.kind === "list") {
-    const fields = w.options.fields?.length ? w.options.fields : ["board", "assignee", "due"];
-    rows = [["Elemento", ...fields.map((f) => fieldLabel(ds, f))], ...r.tasks.map((t) => [t.title, ...fields.map((f) => fieldText(ds, t, f))])];
+    const fields = listColumns(w);
+    rows = [fields.map((f) => (f === "title" ? "Elemento" : fieldLabel(ds, f))), ...r.tasks.map((t) => fields.map((f) => fieldText(ds, t, f)))];
   } else if (r.kind === "series") {
     const multi = r.series.length > 1 || r.series[0]?.key !== "__all";
     rows = [

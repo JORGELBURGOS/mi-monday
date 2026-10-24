@@ -139,7 +139,7 @@ export const widgetSchema = z.object({
       decimals: z.number().int().min(0).max(4).optional(),
       goal: z.number().finite().optional(),
       text: z.string().max(2000).optional(),
-      fields: z.array(field).max(8).optional(),
+      fields: z.array(field).max(10).optional(),
       emptyCategories: z.boolean().optional(),
     })
     .default({}),
@@ -205,4 +205,10 @@ export function templateWidgets(kind: "blank" | "summary"): Widget[] {
     w({ type: "line", title: "Terminados por semana", w: 6, rows: 4, dim: { field: "done_at", period: "week" }, filters: { boards: [], state: "done", subitems: false, conditions: [{ field: "done_at", op: "last_days", values: ["90"] }] } }),
     w({ type: "list", title: "Vencidos", w: 12, rows: 4, filters: { boards: [], state: "overdue", subitems: false, conditions: [] }, options: { fields: ["board", "assignee", "due", "status"], limit: 20 } }),
   ];
+}
+
+/** Columnas de una lista en orden. «Elemento» (title) se puede mover; si no está, va primero. */
+export function listColumns(w: Pick<Widget, "options">): string[] {
+  const f = w.options.fields?.length ? w.options.fields : ["board", "assignee", "due"];
+  return f.includes("title") ? f : ["title", ...f];
 }

@@ -1,6 +1,6 @@
 // Pruebas del motor de dashboards: npx tsx tests/dashboard-engine.test.ts
 import { computeWidget, fieldCatalog, filterTasks, formatValue, optionsOf, type Dataset } from "@/lib/dashboard-engine";
-import { blankWidget, templateWidgets, widgetSchema } from "@/lib/dashboards";
+import { blankWidget, listColumns, templateWidgets, widgetSchema } from "@/lib/dashboards";
 const st = (id: string, label: string, color: string, is_done = false, position = 0) => ({ id, label, color, is_done, position });
 const col = (id: string, name: string, kind: string, options: unknown[] = []) => ({ id, board_id: "b", name, kind, options, settings: {}, position: 0, created_at: "", hidden: false } as never);
 const ds: Dataset = {
@@ -69,6 +69,8 @@ r = computeWidget(ds, W({ type: "bar", dim: { field: "status" }, options: { sort
 ok(r.kind === "series" && r.categories.map((c) => c.label).join(",") === "Listo,No iniciado,En curso", "orden personalizado de filas");
 r = computeWidget(ds, W({ type: "pivot", dim: { field: "board" }, split: { field: "status" }, options: { seriesOrder: ["en curso", "listo"] } }));
 ok(r.kind === "series" && r.series.map((c) => c.label).join(",") === "En curso,Listo,No iniciado", "orden personalizado de columnas");
+ok(listColumns(W({ type: "list", options: { fields: ["board", "due"] } })).join(",") === "title,board,due", "lista vieja: Elemento primero");
+ok(listColumns(W({ type: "list", options: { fields: ["due", "title", "board"] } })).join(",") === "due,title,board", "Elemento en la posición elegida");
 for (const w of templateWidgets("summary")) computeWidget(ds, w);
 for (const t of ["kpi","bar","hbar","stacked","line","area","pie","donut","progress","pivot","list","text"] as const) computeWidget(ds, blankWidget(t));
 ok(true, "plantilla y widgets por defecto calculan sin errores");
