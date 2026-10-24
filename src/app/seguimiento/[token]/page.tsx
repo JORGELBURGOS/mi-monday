@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { callForms } from "@/lib/forms-api";
 import { cn } from "@/lib/cn";
 import type { FormDesign } from "@/lib/form-logic";
-import { FormCover, formTheme } from "@/components/forms/form-renderer";
+import { FormCover } from "@/components/forms/form-renderer";
+import { formTheme } from "@/lib/form-theme";
 
 export const metadata: Metadata = { title: "Seguimiento de tu pedido", robots: { index: false, follow: false } };
 

@@ -6,7 +6,8 @@ import { cn } from "@/lib/cn";
 import { browserClient } from "@/lib/supabase/browser";
 import { callForms } from "@/lib/forms-api";
 import type { Answers, FileAnswer, FormDesign } from "@/lib/form-logic";
-import { FormCover, FormRenderer, formTheme, type FormTransport, type PublicForm, type SubmitResult } from "./form-renderer";
+import { formTheme } from "@/lib/form-theme";
+import { FormCover, FormRenderer, type FormTransport, type PublicForm, type SubmitResult } from "./form-renderer";
 
 export type FormEnvelope =
   | ({ locked: false; id: string; access: string } & PublicForm)

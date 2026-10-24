@@ -44,16 +44,6 @@ export type FormTransport = {
 };
 
 /** Estilos del formulario según su color (los colores de etiquetas de Vetta). */
-export function formTheme(design: FormDesign): React.CSSProperties {
-  const c = design.accent || "blue";
-  return {
-    ["--fa" as string]: `var(--solid-${c})`,
-    ["--fa-fg" as string]: `var(--solid-${c}-fg)`,
-    ["--fa-soft" as string]: `var(--chip-${c}-bg)`,
-    ["--fa-dot" as string]: `var(--chip-${c}-dot)`,
-  };
-}
-
 export function FormCover({ design, title, description }: { design: FormDesign; title: string; description?: string | null }) {
   return (
     <header className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">

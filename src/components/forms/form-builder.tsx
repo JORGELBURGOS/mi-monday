@@ -16,7 +16,8 @@ import { formatDateTime, relativeTime } from "@/lib/format";
 import { previewSpecs, type BoardForForm } from "@/lib/forms";
 import { isInput, type FormConfig } from "@/lib/form-logic";
 import { deleteFormAction, duplicateFormAction, saveFormAction, setFormPasswordAction, setFormPublishedAction } from "@/app/actions/forms";
-import { FormCover, FormRenderer, formTheme } from "./form-renderer";
+import { FormCover, FormRenderer } from "./form-renderer";
+import { formTheme } from "@/lib/form-theme";
 import { QuestionsEditor } from "./question-editor";
 
 /** Hora actual (fuera del render para la regla de pureza). */
