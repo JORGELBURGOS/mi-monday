@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { buttonClasses } from "@/components/ui/button-classes";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { IconArchive, IconFlow, IconSettings, IconTrash } from "@/components/ui/icons";
+import { IconArchive, IconFlow, IconForm, IconSettings, IconTrash } from "@/components/ui/icons";
 
 export function BoardHeaderActions({
   board,
@@ -41,6 +41,9 @@ export function BoardHeaderActions({
         <>
           <Link href={`/t/${board.id}/reglas`} className={buttonClasses("secondary", "sm")}>
             <IconFlow size={15} /> Reglas
+          </Link>
+          <Link href={`/t/${board.id}/formularios`} className={buttonClasses("secondary", "sm")}>
+            <IconForm size={15} /> Formularios
           </Link>
           <Link href={`/t/${board.id}/ajustes`} className={buttonClasses("secondary", "sm")}>
             <IconSettings size={15} /> Ajustes

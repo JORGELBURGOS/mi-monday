@@ -109,6 +109,99 @@ export type Database = {
         }
         Relationships: []
       }
+      board_forms: {
+        Row: {
+          access: string
+          board_id: string
+          closes_at: string | null
+          config: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          is_published: boolean
+          max_responses: number | null
+          name: string
+          opens_at: string | null
+          slug: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          access?: string
+          board_id: string
+          closes_at?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          max_responses?: number | null
+          name: string
+          opens_at?: string | null
+          slug?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Update: {
+          access?: string
+          board_id?: string
+          closes_at?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          max_responses?: number | null
+          name?: string
+          opens_at?: string | null
+          slug?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      form_submissions: {
+        Row: {
+          answers: Json
+          board_id: string
+          created_at: string
+          duration_ms: number | null
+          form_id: string
+          id: string
+          ip_hash: string | null
+          submitted_by: string | null
+          task_id: string | null
+          tracking_hash: string | null
+          workspace_id: string
+        }
+        Insert: {
+          answers?: Json
+          board_id: string
+          created_at?: string
+          duration_ms?: number | null
+          form_id: string
+          id?: string
+          ip_hash?: string | null
+          submitted_by?: string | null
+          task_id?: string | null
+          tracking_hash?: string | null
+          workspace_id: string
+        }
+        Update: {
+          answers?: Json
+          board_id?: string
+          created_at?: string
+          duration_ms?: number | null
+          form_id?: string
+          id?: string
+          ip_hash?: string | null
+          submitted_by?: string | null
+          task_id?: string | null
+          tracking_hash?: string | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       board_automations: {
         Row: {
           action_config: Json
@@ -1139,6 +1232,14 @@ export type Database = {
     Functions: {
       admin_issue_provision_token: { Args: never; Returns: string }
       clear_workspace_ai_key: { Args: { p_workspace: string }; Returns: undefined }
+      set_form_password: {
+        Args: { p_form: string; p_password: string }
+        Returns: undefined
+      }
+      form_has_password: {
+        Args: { p_form: string }
+        Returns: boolean
+      }
       set_workspace_ai_key: {
         Args: { p_daily_limit?: number; p_key: string; p_workspace: string }
         Returns: undefined

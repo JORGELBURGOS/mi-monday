@@ -27,12 +27,15 @@ export function Menu({
   items,
   align = "end",
   triggerClassName,
+  className,
 }: {
   label: string;
   trigger: React.ReactNode;
   items: MenuItem[];
   align?: "start" | "end";
   triggerClassName?: string;
+  /** Clases del contenedor (por ejemplo, "flex w-full" para un botón a todo el ancho). */
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [container, setContainer] = useState<Element | null>(null);
@@ -118,7 +121,7 @@ export function Menu({
   };
 
   return (
-    <div className="relative inline-flex">
+    <div className={cn("relative inline-flex", className)}>
       <button
         ref={buttonRef}
         type="button"

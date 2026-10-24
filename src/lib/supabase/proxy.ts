@@ -4,7 +4,7 @@ import type { Database } from "@/lib/database.types";
 import { getSupabaseEnv } from "@/lib/env";
 
 /** Rutas accesibles sin sesión. */
-const PUBLIC_PATHS = ["/", "/login", "/recuperar", "/configuracion-pendiente"];
+const PUBLIC_PATHS = ["/", "/login", "/recuperar", "/configuracion-pendiente", "/f", "/seguimiento"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)));

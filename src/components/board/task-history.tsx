@@ -128,7 +128,7 @@ export function TaskHistory({ taskId, lookup, reloadKey }: { taskId: string; loo
 
 function HistoryRow({ r }: { r: Row }) {
   const c = r.change;
-  const hasValues = (c.from !== null || c.to !== null) && !["comments"].includes(c.group) && c.field !== "Creación";
+  const hasValues = (c.from !== null || c.to !== null) && !["comments"].includes(c.group) && c.field !== "Creación" && c.field !== "Formulario";
   const revert = r.automation_name?.endsWith("(reversión)");
   return (
     <li className="grid gap-x-3 gap-y-1 px-3 py-2 text-sm sm:grid-cols-[64px_minmax(0,150px)_minmax(0,1fr)]">

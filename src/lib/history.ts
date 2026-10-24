@@ -87,6 +87,8 @@ export function describeChange(kind: string, d: Record<string, unknown>, lookup:
     }
     case "checklist_completed":
       return change("checklist", str(d.column) ?? "Checklist", null, "Completo", `Checklist completo${str(d.column) ? ` «${str(d.column)}»` : ""}${typeof d.total === "number" ? ` (${d.total} pasos)` : ""}`);
+    case "form_submitted":
+      return change("item", "Formulario", null, str(d.form), `Llegó por el formulario «${str(d.form) ?? ""}»${str(d.by) ? `, enviado por ${str(d.by)}` : ""}`);
     case "comment":
       return change("comments", "Actualización", null, null, `Escribió una actualización: «${str(d.body) ?? ""}»`);
     case "deleted":
@@ -101,7 +103,7 @@ export function describeChange(kind: string, d: Record<string, unknown>, lookup:
 /** Con el dato de antes/después en la frase (para listas compactas). */
 export function changeSentence(c: DescribedChange) {
   if (c.from === null && c.to === null) return c.text;
-  if (["checklist", "comments"].includes(c.group) || c.field === "Creación" || c.field === "Copia" || c.field === "Tablero") return c.text;
+  if (["checklist", "comments"].includes(c.group) || ["Creación", "Copia", "Tablero", "Formulario"].includes(c.field)) return c.text;
   if (c.field === "Descripción") return c.text;
   return `${c.field}: ${c.from ?? "vacío"} → ${c.to ?? "vacío"}`;
 }

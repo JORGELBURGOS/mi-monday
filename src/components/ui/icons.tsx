@@ -167,3 +167,6 @@ export const IconChart = (p: IconProps) => (
 export const IconChecklist = (p: IconProps) => (
   <svg {...base(p)}><path d="m4 6 1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9" /></svg>
 );
+export const IconForm = (p: IconProps) => (
+  <svg {...base(p)}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
+);
